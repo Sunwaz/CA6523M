@@ -14,6 +14,7 @@
 #include "configure.h"
 #include "com.h"
 #include "key_led.h"
+#include "timer.h"
 
 #include "string.h"
 /* 宏定义	--------------------------------------------------------------------*/
@@ -866,6 +867,7 @@ double ADC_DataSave(uint8_t adc_num , int32_t *camp , double cail , PART type , 
 							2018-06-07				函数重写
 							2018-07-17				修复bug;针对电流的adc采样进行分段调整,输入矫正值由0.30141更改为0.2261
 							2018-07-19				函数优化;针对校准程序的使用,本函数添加返回值,反回原始采样值
+							2018-07-27				函数优化;在结束位置清零采样标记,并复位定时器
  ****************************************************************************/
 double ADC_Collection( uint8_t cmd )
 {
@@ -929,6 +931,8 @@ double ADC_Collection( uint8_t cmd )
 			break;}*/
 		default:{//采样完成
 			cnt = 0;
+			g_adc_get_flag = 0;       //标志位清零
+			CampTime_Updeat(&g_sys_param.camp_time);//采样时间更新
 			break;}
 	}
 	return re_value;

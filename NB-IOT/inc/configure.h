@@ -30,8 +30,9 @@ extern uint8_t  END[2];                       //使用结束符
 extern uint8_t	g_rec_time;									  //回复消息的超时时间,如果时间超过了30s,则不查询接收,如果小于30s则每2s查询一次接收
 extern uint8_t g_nb_reset_flow;	              //初始化流程
 extern uint16_t NB_Handle_TX_CNT;				      //NB发送待处理的 长度 到模块
-extern uint8_t socket;
-extern char MODLE_NAME[20];
+extern uint8_t socket;												//socket号
+extern char MODLE_NAME[20];										//模块型号
+extern uint8_t g_model_config_flag;						//模块初始化标志
 /* 外部接口	------------------------------------------------------------------*/
 void runstate_to_usart(char* cmd);											//发送到上位机
 void network_parameterUpdata(void);											//更新网络参数(字符串转成数字)

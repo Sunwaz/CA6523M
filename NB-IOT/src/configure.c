@@ -29,19 +29,20 @@
 /* 结构体定义	----------------------------------------------------------------*/
 /* 内部引用	------------------------------------------------------------------*/
 /* 全局变量	------------------------------------------------------------------*/
-uint8_t  END[2]								= {0x0D,0x0A};        //使用结束符
-uint8_t g_nb_newdata_flag               = 0;				//新数据标志   
-uint8_t  g_nb_error_flag      = 0;									//NB故障标志
-char NB_Ope				            = DIANXIN;						//电信
-char MODLE_VER[20]            = {0};								//模块版本
+uint8_t  END[2]												= {0x0D,0x0A};///使用结束符
+uint8_t g_nb_newdata_flag							= 0;					//新数据标志   
+uint8_t  g_nb_error_flag      				= 0;					//NB故障标志
+char NB_Ope				            				= DIANXIN;		//电信
+char MODLE_VER[20]            				= {0};				//模块版本
 param_typedef   g_sys_param;												//系统参数
-uint16_t g_nb_rx_cnt                    = 0;				//接收计数
-uint8_t  g_nb_rx_buff[USART_REC_LEN]    = {0};      //接收到的数据
-uint16_t NB_Handle_TX_CNT			= 0;				          //NB发送待处理的 长度 到模块
-uint8_t        g_rec_time           = 0;						//回复消息的超时时间,如果时间超过了30s,则不查询接收,如果小于30s则每2s查询一次接收
-uint8_t g_nb_reset_flow       = 1;	                //初始化流程
-uint8_t socket = 0;
-char MODLE_NAME[20]               ={0};
+uint16_t g_nb_rx_cnt									= 0;					//接收计数
+uint8_t  g_nb_rx_buff[USART_REC_LEN]	= {0};      	//接收到的数据
+uint16_t NB_Handle_TX_CNT							= 0;				  //NB发送待处理的 长度 到模块
+uint8_t        g_rec_time           	= 0;					//回复消息的超时时间,如果时间超过了30s,则不查询接收,如果小于30s则每2s查询一次接收
+uint8_t g_nb_reset_flow       				= 1;	        //初始化流程
+uint8_t socket 												= 0;					//模块socket号
+char MODLE_NAME[20]               		={0};					//模块名称
+uint8_t g_model_config_flag   				= 0;					//模块初始化标志
 /* 系统函数	------------------------------------------------------------------*/
 /*****************************************************************************
  * 函数功能:		数字转换成字符串
@@ -386,23 +387,23 @@ void runstate_to_usart(char* cmd)
 							2018-05-04				系统数据最新的是int型的数组,在保存的时候,应先由int型转换成char型再保存,删除数据更新
 							2018-05-17				端口部分的设置程序有问题,已修复
 							2018-06-08				删除全局变量 Device_IDchar Serv_Ipchar UDPPort UDPPortchar等
+							2018-07-27				函数优化,在存flash之前修改一下采样时间
  ****************************************************************************/
 void network_parameterUpdata(void)
 {
 	uint16_t temp   = 0;							  //中间变量					最高位数据
 	
 	if(1){//数据保存
+	CampTime_Updeat(&g_sys_param.camp_time);
 	temp = sizeof(g_sys_param)/sizeof(uint16_t);
 	STMFLASH_Write( FLASH_SAVE_ADDR_DeviceID , (uint16_t*)&g_sys_param , temp);}		//数据保存
-	if(1){//采样时间设置
-		Sampling_TimerConfig( g_sys_param.camp_time );										//设置采样时间
-	}
 }
 /*****************************************************************************
  * 函数功能:		初始化网络参数
  * 形式参数:		无
  * 返回参数:		无
  * 更改日期;		2018-03-07				函数移植
+							2018-07-24				函数优化,在读取完数据后设置一下采样时间
  ****************************************************************************/
 void network_parameter_flashRead(void)
 {
@@ -416,10 +417,7 @@ void network_parameter_flashRead(void)
 		if(1){
 		memcpy(&g_sys_param , p , sizeof(g_sys_param));
 		}
-////////////////系统数据设置////////////////
-		if(1){
-			Sampling_TimerConfig( g_sys_param.camp_time );										//设置采样时间
-		}
+		CampTime_Updeat(&g_sys_param.camp_time);
 ////////////////异常数据变更////////////////
 		if(1){
 			if((g_sys_param.cali.curr <= 100) || (g_sys_param.cali.curr >= 10000))
@@ -480,7 +478,6 @@ void network_parameter_flashRead(void)
 //		g_sys_param.threa.temp3 = DEFAULT_TEMP;															//默认报警温度			60℃
 //		g_sys_param.threa.hj_humi = DEFAULT_HJ_HUMI;												//默认报警环境湿度	10%RH
 //		g_sys_param.threa.hj_temp = DEFAULT_HJ_TEMP;												//默认报警环境温度 60℃
-		Sampling_TimerConfig( g_sys_param.camp_time );										  //设置采样时间
 	}
 }
 

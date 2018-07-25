@@ -253,24 +253,24 @@ ErrorStatus BC95_init( uint8_t* cnt , uint8_t *flag)
 		case 5:{//ISMI号查询
 			state = NB_ReadMoudleISMI("\r\n" , cnt);
 			break;}
-		case 6:{//查询运营商
-			max   = 70;
-			state = NB_ReadMoudleOperator("+COPS:" , cnt);
-			break;}
-		case 7:{//网络附着情况(有时候30s左右)
+		case 6:{//网络附着情况(有时候30s左右)
 			max = 60;
 			if(NB_SendCmd("AT+CGATT?" , strlen("AT+CGATT?") , "+CGATT:1" , &i ,cnt) == SUCCESS)
 			{
 				state	= SUCCESS;
 				runstate_to_usart("网络附着成功!\r\n");
 			}break;}
-		case 8:{//网络注册情况
+		case 7:{//网络注册情况
 			max = 60;
 			if(NB_SendCmd("AT+CEREG?" , strlen("AT+CEREG?") , "+CEREG:0,1" , &i, cnt) == SUCCESS)
 			{
 				state	= SUCCESS;
 				runstate_to_usart("网络链路正常!\r\n");
 			}break;}
+		case 8:{//查询运营商
+			max   = 70;
+			state = NB_ReadMoudleOperator("+COPS:" , cnt);
+			break;}
 		case 9:{//接收消息主动返回
 			if(NB_SendCmd("AT+NNMI=2" , strlen("AT+NNMI=2") , "OK" , &i , cnt) == SUCCESS)
 			{
@@ -364,7 +364,7 @@ void BC95_ReceiveData( uint8_t* cnt)
 	uint16_t p = 0,q=0;
 	uint8_t buff[50] = {0};
 
-	if(g_nb_error_flag)return;
+	if((g_nb_error_flag) || (!g_model_config_flag))return;
 	NB_ReceiveData();//查收数据消息+NSONMI:0,68
 	switch(NB_Ope)
 	{

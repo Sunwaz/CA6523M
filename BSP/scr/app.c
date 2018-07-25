@@ -120,6 +120,7 @@ void CRT_ReSend(void)
  * 更改日期;		2018-03-07				函数移植
 								2018-06-01				修复bug;同一个时间点多次填装数据,发送数据
 								2018-06-11				函数优化;函数重新编写
+								2018-07-24				函数优化;增加模块的初始化流程和以前的复位流程合并,更改了发送操作信息的优先级
  ****************************************************************************/ 
 void app_net(void)
 {
@@ -131,48 +132,43 @@ void app_net(void)
 	{
 		case 0:{//应用判断判断
 			if((g_sys_tim_s & 0xFF) != s_old_time)s_run_cnt = 1;//发送数据的优先级最高
-			else	if(g_sys_operation_msg)         s_run_cnt = 2;//其次是发送操作信息
-			else  if(g_cail_data.flag)            s_run_cnt = 3;//再次是校准设备
-			else  if(g_adc_get_flag)              s_run_cnt = 4;//最后是数据采样
-			else  if(g_sys_param.updat_flag)      s_run_cnt = 5;//网络数据更新
-			else  if(g_up_config_flag)            s_run_cnt = 6;//配置信息上传
-			else  if(g_crt_run_cnt!=g_crt_fun_cnt)s_run_cnt = 7;//串口数据发送
-			else  if(g_monitor_flag)              s_run_cnt = 8;//数据监控
+			else  if(g_cail_data.flag)            s_run_cnt = 2;//再次是校准设备
+			else  if(g_adc_get_flag)              s_run_cnt = 3;//最后是数据采样
+			else  if(g_sys_param.updat_flag)      s_run_cnt = 4;//网络数据更新
+			else  if(g_up_config_flag)            s_run_cnt = 5;//配置信息上传
+			else  if(g_crt_run_cnt!=g_crt_fun_cnt)s_run_cnt = 6;//串口数据发送
+			else  if(g_monitor_flag)              s_run_cnt = 7;//数据监控
+			else  if(!g_model_config_flag)				s_run_cnt = 8;//模块初始化
+			else	if(g_sys_operation_msg)         s_run_cnt = 9;//其次是发送操作信息
 			break;}
 		case 1:{//发送数据
 			s_run_cnt = 0;
 			CRT_ReSend();
-			Heart_task();							//心跳
+			Heart_task();								//心跳
 			net_to_module();            //发送数据
-			radio.rece(&s_cnt);				  //接收数据		
-			Nbiot_reset();					    //设备复位
+			if(radio.rece != NULL)radio.rece(&s_cnt);//接收数据		
 			s_old_time = g_sys_tim_s & 0xFF;
 			break;}
-		case 2:{//添加操作信息
-			s_run_cnt = 0;
-			sys_app(type_oper_info);
-			break;}
-		case 3:{//数据校准
+		case 2:{//数据校准
 			s_run_cnt = 0;
 			g_cail_data.flag = 0;
 			ADC_Cail();                 //ADC校准
 			break;}
-		case 4:{//数据采样
+		case 3:{//数据采样
 			s_run_cnt = 0;
-			g_adc_get_flag = 0;       //标志位清零
 			ADC_Collection(0xFF);         //数据采集
 			break;}
-		case 5:{//网络数据更新
+		case 4:{//网络数据更新
 			s_run_cnt = 0;
 			g_sys_param.updat_flag = 0;//更新标志清空
 			network_parameterUpdata();//更新网络参数(字符串转成数字)	
 			break;}
-		case 6:{//配置信息上传
+		case 5:{//配置信息上传
 			s_run_cnt = 0;
 			g_up_config_flag = 0;
 			sys_app(type_upload_startup);
 			break;}
-		case 7:{//串口数据发送
+		case 6:{//串口数据发送
 			s_run_cnt = 0;
 			if((!g_ack_flag) && (crt_fun[g_crt_run_cnt] != NULL))
 			{
@@ -180,29 +176,24 @@ void app_net(void)
 				crt_fun[g_crt_run_cnt]();//函数运行
 			}
 			break;}
-		case 8:{//数据监控
+		case 7:{//数据监控
 			s_run_cnt = 0;
 			USART_CRT_FunAdd(USART_SendMonitorData);
+			break;}
+		case 8:{//模块重启
+			s_run_cnt = 0;
+			Nbiot_reset();
+			break;}
+		case 9:{//添加操作信息
+			s_run_cnt = 0;
+			sys_app(type_oper_info);
 			break;}
 		default:{//其他
 			s_run_cnt = 0;
 			break;}
 	}
 }
-/*****************************************************************************
- * 函数功能:		应用初始化
- * 形式参数:		无
- * 返回参数:		无
- * 更改日期;		2018-03-08				函数移植
-							2018-05-11				平台主动获取配置信息,屏蔽掉原有的函数 up_configmessage 
-							2018-05-11				添加 上传启动信息
- ****************************************************************************/ 
-void Init_app(void)
-{
-	sys_app( type_upload_startup );    //上传一次启动信息
-	sys_app( type_upload_config );     //上传一次配置信息
-	sys_app( type_runing );            //上传一次运行信息
-}
+
 
 /*****************************************************************************
  * 函数功能:时间数据的拷贝
@@ -331,7 +322,7 @@ uint16_t data_add_running( void )
 	dat_len = 55;	                                                      //最大长度//四个字节的信号强度+三个字节的基站编号+九个字节的小区编号+四个字节信噪比+两个字节信号强度+十五个字节的IMSI+六个字节时间
 	data_indexcheck( dat_len , &old_index );								//输入数据长度 ,获取起始位置和保存位置
 	runing_state_upload(g_nb_net_buff );					//数据添加,获取实际的数据长度 
-  data_time_copy();//时间的拷贝
+	data_time_copy();//时间的拷贝
 	return old_index;                                                   //返回起始位置
 }
 
@@ -414,9 +405,11 @@ void net_app_add( app_type type)
 							2018-05-22				发现bug;当队列被排满,则无法进行队列里面相关函数的执行
 																队列没有删除机制,导致发送失败会不断的占满整个队列
 							2018-05-29				新增功能;当应用队列更新的时候,数据缓存的起始位置也要改变
+							2018-07-24				函数优化;当模块没有被初始化的时候,不允许运行app应用
  ****************************************************************************/
 void app_run_queue(void)
 {
+	if(!g_model_config_flag)return;
 	if(g_queue_idex_s != g_queue_idex_e)
 	{
 		sys_app(type_null_dat);//队列运行成功,则删除掉本次的内容
@@ -763,12 +756,14 @@ void up_per_info(uint8_t* up_data )
 							2018-05-30				函数重写
 							2018-06-07				修复bug;数据没有发送成功,但是数据被删除了,故删除掉队列移动,在收到数据后才移动队列
 							2018-06-22				修复bug;数据填装错误
+							2018-07-24				函数优化;模块没有初始化,不能进行app应用的添加和执行
  ****************************************************************************/
 ErrorStatus sys_app(app_type type)
 {
 	uint16_t msg_len = 0;				//信息体长度
 	cmd_type cmd;								//命令
 	
+	if(!g_model_config_flag)return ERROR;						//模块没有初始化,则不能执行下列程序
 	if(1){//数据判断
 		if(type != type_null_dat)
 		{

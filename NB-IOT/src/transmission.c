@@ -579,7 +579,7 @@ void net_to_module(void)
 	static uint8_t out_poll_max=0;			//模块最大重传次数
 	static uint8_t out_send_max=0;			//服务器最大重传次数
 
-	if(g_nb_error_flag)return;
+	if((g_nb_error_flag) || (!g_model_config_flag))return;
 	//有数据需要发送
 	if(Build_Net_Data_Flag == 1)//数据未发送到模块且服务器空闲
 	{//无需等待服务器（第一次发送数据）

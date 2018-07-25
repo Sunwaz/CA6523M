@@ -118,7 +118,6 @@ void TIM14_IRQHandler(void)
 //定时器16中断服务函数
 void TIM15_IRQHandler(void)
 {
-	ADC_TimerIRQnHandle();
 }
 /******************************************************************************/
 /*                 STM32F0xx Peripherals Interrupt Handlers                   */

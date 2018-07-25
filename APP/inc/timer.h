@@ -17,8 +17,7 @@ extern uint8_t NET_outtime;										//服务器网络超时
 extern uint8_t g_adc_get_flag;								//ADC采集标志
 /* 接口提供	----------------------------------------------------------------*/
 void Timer_Config( void );										//定时器初始化
-void Sampling_TimerConfig( uint16_t time );   //定时采样
 void Sys_TimerIRQnHandle( void );							//系统定时器中断服务函数
-void ADC_TimerIRQnHandle( void );							//adc定时器中断服务函数
+void CampTime_Updeat( uint16_t *time );
 #endif       /*__timer_H end*/
 /*------------------------------File----------End------------------------------*/
