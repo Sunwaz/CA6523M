@@ -11,6 +11,7 @@
 #include "delay.h"
 #include "configure.h"
 #include "key_led.h"
+#include "timer.h"
 /* 宏定义	------------------------------------------------------------------*/
 /** @addtogroup 驱动移植部分
   * @{
@@ -91,17 +92,17 @@
 /* 结构体定义	--------------------------------------------------------------*/
 /* 内部引用	----------------------------------------------------------------*/
 /* 全局变量	----------------------------------------------------------------*/
-uint8_t  USART_RX1_BUF[RX_485_LEN];
-uint16_t USART_RX1_CNT=0;
-void (*crt_fun[CRT_FUN_CNT])(void);//函数指针数组
-uint8_t g_crt_fun_cnt = 0;
-uint8_t g_crt_run_cnt = 0;
-uint8_t g_ack_flag = 0;
-uint8_t g_re_cnt = 0;
-uint8_t g_cail_type = 0;
-uint8_t g_usart_errortype = 0;
-uint8_t g_usart_errorvalu = 0;
-uint8_t g_monitor_flag = 0;
+uint8_t  USART_RX1_BUF[RX_485_LEN];													//串口接收数组
+uint16_t USART_RX1_CNT=0;																		//串口数据的长度
+void (*crt_fun[CRT_FUN_CNT])(void);													//CRT命令队列
+uint8_t g_crt_fun_cnt = 0;																	//CRT命令存放位置
+uint8_t g_crt_run_cnt = 0;																	//CRT命令运行位置
+uint8_t g_ack_flag    = 0;																	//CRT应答标志
+uint8_t g_re_cnt      = 0;																	//CRT命令重发计数
+uint8_t g_cail_type   = 0;																	//ADC校准类型
+uint8_t g_usart_errortype = 0;															//串口错误类型
+uint8_t g_usart_errorvalu = 0;															//串口错误值
+uint8_t g_monitor_flag = 0;																	//CRT监控标志
 /* 系统函数	----------------------------------------------------------------*/
 /*****************************************************************************
  * 函数功能:	串口初始化
@@ -452,7 +453,12 @@ void USART_SendSysConfig(void)
 
 	USART_CONFIG_SEND(USART_RX1_BUF , USART_RX1_CNT+1);
 }
-
+/*****************************************************************************
+ * 函数功能:	版本信息的发送
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-07-18					文档编写
+ ****************************************************************************/
 void USART_SendVer(void)
 {
 	uint8_t i = 0;
@@ -468,6 +474,52 @@ void USART_SendVer(void)
 		USART_RX1_BUF[USART_RX1_CNT++]	= i;//设备程序版本长度
 		memcpy(&USART_RX1_BUF[USART_RX1_CNT] , SYS_VER , i);
 		USART_RX1_CNT += i;
+	}
+	USART_RX1_BUF[1] = USART_RX1_CNT;//数据长度
+	USART_RX1_BUF[USART_RX1_CNT] = 0;
+	for(i = 0;i < USART_RX1_BUF[1];i++)
+	{
+		USART_RX1_BUF[USART_RX1_CNT] += USART_RX1_BUF[i];
+	}
+	USART_RX1_BUF[++USART_RX1_CNT] = 0x55;
+
+	USART_CONFIG_SEND(USART_RX1_BUF , USART_RX1_CNT+1);
+}
+
+/*****************************************************************************
+ * 函数功能:	屏蔽信息的发送
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-07-18					文档编写
+ ****************************************************************************/
+void USART_SendShield(void)
+{
+	uint8_t i = 0;
+	
+	USART_RX1_CNT = 2;
+	USART_RX1_BUF[0] = 0xAA;
+	
+	USART_RX1_BUF[USART_RX1_CNT++]		= 0x03;//上传配置信息
+	USART_RX1_BUF[USART_RX1_CNT++]		= 0x04;//上传配置信息个数
+	if(1){//温度传感器屏蔽
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x15;//温度传感器屏蔽类型
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//温度传感器屏蔽长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= g_sys_param.shield.temp;//温度传感器屏蔽数据
+	}
+	if(2){//电流传感器屏蔽
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x16;//电流传感器屏蔽类型
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//电流传感器屏蔽长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= g_sys_param.shield.curr;//电流传感器屏蔽数据
+	}
+	if(3){//电压传感器屏蔽
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x17;//电压传感器屏蔽类型
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//电压传感器屏蔽长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= g_sys_param.shield.volat;//电压传感器屏蔽数据
+	}
+	if(4){//剩余电流传感器屏蔽
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x18;//电压传感器屏蔽类型
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//电压传感器屏蔽长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= g_sys_param.shield.sy_curr;//电压传感器屏蔽数据
 	}
 	USART_RX1_BUF[1] = USART_RX1_CNT;//数据长度
 	USART_RX1_BUF[USART_RX1_CNT] = 0;
@@ -760,7 +812,7 @@ void USART_UpdeatConfig(uint8_t* buff)
 				g_sys_param.port |= (buff[length++] << 8);
 				length = 4;
 				break;}
-			case 0x03:{//设备网管号
+			case 0x03:{//设备网关号
 				length = buff[++index];
 				start = ++index;
 				memcpy(g_sys_param.device_ip , &buff[start] , length);
@@ -840,6 +892,26 @@ void USART_UpdeatConfig(uint8_t* buff)
 						break;}
 				}
 				length = 5;
+				break;}
+			case 0x15:{//温度屏蔽
+				length = index+2;
+				g_sys_param.shield.temp = buff[length++];
+				length = 3;
+				break;}
+			case 0x16:{//电流屏蔽
+				length = index+2;
+				g_sys_param.shield.curr = buff[length++];
+				length = 3;
+				break;}
+			case 0x17:{//电压屏蔽
+				length = index+2;
+				g_sys_param.shield.volat = buff[length++];
+				length = 3;
+				break;}
+			case 0x18:{//剩余电流屏蔽
+				length = index+2;
+				g_sys_param.shield.sy_curr = buff[length++];
+				length = 3;
 				break;}
 			default:{
 					break;}
@@ -934,6 +1006,8 @@ void USART_485_DataHandle(uint8_t* buff , uint8_t length)
 			USART_CRT_FunAdd(USART_SendThread);//发送阈值信息
 			USART_CRT_FunAdd(USART_SendModelMsg);//发送模块信息
 			USART_CRT_FunAdd(USART_SendVer);//发送程序版本号
+		  USART_CRT_FunAdd(USART_SendShield);//发送端口配置
+			USART_CRT_FunAdd(USART_SendOK);//发送应答信号
 			break;
 		case 0x02://下传配置信息
 			USART_UpdeatConfig(&buff[1]);
@@ -955,25 +1029,26 @@ void USART_485_DataHandle(uint8_t* buff , uint8_t length)
  * 形式参数:	无
  * 返回参数:	无
  * 修改日期:	2018-03-08					文档移植
+						2018-07-25					修复bug;增加了接收超时时间,修复干扰无法接收完数据的时候,不能接收数据
  ****************************************************************************/
 void USART_485_IRQnHandle(void)
 {
 	uint8_t re_data = 0;
 	static uint8_t s_len = 0;
-	static uint8_t s_flg = 0;
 
 	USART_ERROR_Header(USART_485_COM);//串口异常处理
 	if(USART_GetITStatus(USART_485_COM , USART_IT_RXNE) != RESET)
 	{
 		re_data = USART_ReceiveData( USART_485_COM );
-		if((!s_flg) && (re_data == 0xAA))//收到帧头
+		if((!g_crt_flag) && (re_data == 0xAA))//收到帧头
 		{
-			s_flg = 1;
+			g_crt_flag = 1;
+			g_crt_time = 20;//20s超时时间
 			USART_RX1_CNT = 0;
-		}else if((s_flg) && (!s_len))//收到数据长度
+		}else if((g_crt_flag) && (!s_len))//收到数据长度
 		{
 			s_len = re_data;
-		}else if((s_flg) && (s_len))//数据保存到缓冲区
+		}else if((g_crt_flag) && (s_len))//数据保存到缓冲区
 		{
 			USART_RX1_BUF[USART_RX1_CNT++] = re_data;
 			if(USART_RX1_CNT == s_len)//解析
@@ -981,13 +1056,13 @@ void USART_485_IRQnHandle(void)
 				USART_485_DataHandle(USART_RX1_BUF , s_len);
 				s_len = 0;
 				USART_RX1_CNT = 0;
-				s_flg = 0;
+				g_crt_flag = 0;
 			}
 		}else
 		{
 			s_len = 0;
 			USART_RX1_CNT = 0;
-			s_flg = 0;
+			g_crt_flag = 0;
 		}
 		USART_ClearITPendingBit(USART_485_COM , USART_IT_RXNE);
 	}

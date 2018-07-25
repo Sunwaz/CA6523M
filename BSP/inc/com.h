@@ -22,7 +22,7 @@
 #define TEMP_MIN										  (int16_t)-500					 //最低可测温度
 #define VOLAT_MAX										  (int16_t)5000					 //最高可测电压
 
-#define SYS_VER                       "CA6523M-V101-20180717"//程序版本号
+#define SYS_VER                       "CA6523M-V101-20180725"//程序版本号
 
 #define SYS_FLAG										  0x80									 //智慧用电系统
 
@@ -188,6 +188,12 @@ typedef struct{																		//校准数据结构体
 	uint16_t sy_curr;																//剩余电流校准数据
 	uint16_t temp[3];																//温度校准数据
 }cail_typedef;
+typedef struct{																		//屏蔽数据结构体
+	uint8_t temp;																		//温度通道屏蔽       高两位预留,低6位为通道号
+	uint8_t curr;																		//电流通道屏蔽       高两位预留,低6位为通道号
+	uint8_t volat;																	//电压通道屏蔽       高两位预留,低6位为通道号
+	uint8_t sy_curr;																//剩余电流通道屏蔽    高两位预留,低6位为通道号
+}shield_typedef;
 typedef struct{																		//系统参数结构体
 	uint16_t    updat_flag;													//更新标志位
 	uint16_t    camp_time;													//采样时间
@@ -199,6 +205,7 @@ typedef struct{																		//系统参数结构体
 	uint16_t    port;																//端口号
 	data_typedef threa;															//阈值数据
 	cail_typedef cali;                              //校准数据
+	shield_typedef shield;                          //屏蔽数据结构体
 }param_typedef;
 typedef struct{																		//网络应用队列
 	app_type type;																	//类型

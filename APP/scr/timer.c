@@ -22,7 +22,9 @@
 uint32_t g_sys_tim_s = 0;																		 //定时器计时
 uint8_t g_adc_get_flag = 0;																	 //ADC采集标志
 uint8_t NET_outtime = 0;																	  //服务器网络超时
-uint8_t g_adc_time   = 0;																				//adc的采样时间
+uint8_t g_adc_time   = 0;																		//adc的采样时间
+uint8_t g_crt_flag 		= 0;																	//CRT接收标志
+uint8_t g_crt_time    = 0;																	//CRT接收超时时间
 /* 系统函数	------------------------------------------------------------------*/
 /*****************************************************************************
  * 函数功能:		定时器初始化(单位 500ms)
@@ -86,6 +88,8 @@ void Sys_TimerIRQnHandle( void )
 		if((time_num %2)==0)  
 		{
 			if(NET_outtime>0)NET_outtime--;//服务器等待超时时间
+			if(g_crt_time>0)g_crt_time--;
+			else g_crt_flag = 0;
 			g_sys_tim_s++;
 			if((g_adc_time == (g_sys_tim_s&0xFF)) && (!g_adc_get_flag))
 				g_adc_get_flag = 1;

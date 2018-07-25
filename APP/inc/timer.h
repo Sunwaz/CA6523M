@@ -15,6 +15,8 @@
 /* 全局变量	----------------------------------------------------------------*/
 extern uint8_t NET_outtime;										//服务器网络超时
 extern uint8_t g_adc_get_flag;								//ADC采集标志
+extern uint8_t g_crt_flag;										//CRT接收标志
+extern uint8_t g_crt_time;										//CRT接收超时时间
 /* 接口提供	----------------------------------------------------------------*/
 void Timer_Config( void );										//定时器初始化
 void Sys_TimerIRQnHandle( void );							//系统定时器中断服务函数

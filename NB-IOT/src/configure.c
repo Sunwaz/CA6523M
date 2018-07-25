@@ -404,6 +404,7 @@ void network_parameterUpdata(void)
  * 返回参数:		无
  * 更改日期;		2018-03-07				函数移植
 							2018-07-24				函数优化,在读取完数据后设置一下采样时间
+							2018-07-25				功能添加,添加通道屏蔽的数据读取和异常数据处理
  ****************************************************************************/
 void network_parameter_flashRead(void)
 {
@@ -450,6 +451,10 @@ void network_parameter_flashRead(void)
 				g_sys_param.cali.volat = 1000;
 				g_sys_param.updat_flag = 1;
 			}
+			if(g_sys_param.shield.curr > 7)   g_sys_param.shield.curr    = 7;//默认3通道电流
+			if(g_sys_param.shield.sy_curr > 7)g_sys_param.shield.sy_curr = 1;//默认1通道剩余电流
+			if(g_sys_param.shield.temp > 7)   g_sys_param.shield.temp    = 7;//默认3通道电流
+			if(g_sys_param.shield.volat > 7)  g_sys_param.shield.volat   = 1;//默认1通道电压
 		}
 	}else//如果flash里面没有数据,则将设备设置为默认服务器
 	{
@@ -475,6 +480,10 @@ void network_parameter_flashRead(void)
 		g_sys_param.cali.temp[0] = 1000;
 		g_sys_param.cali.temp[2] = 1000;
 		g_sys_param.cali.volat = 1000;
+		g_sys_param.shield.curr    = 7;//默认3通道电流
+		g_sys_param.shield.sy_curr = 1;//默认1通道剩余电流
+		g_sys_param.shield.temp    = 7;//默认3通道电流
+		g_sys_param.shield.volat   = 1;//默认1通道电压
 //		g_sys_param.threa.temp3 = DEFAULT_TEMP;															//默认报警温度			60℃
 //		g_sys_param.threa.hj_humi = DEFAULT_HJ_HUMI;												//默认报警环境湿度	10%RH
 //		g_sys_param.threa.hj_temp = DEFAULT_HJ_TEMP;												//默认报警环境温度 60℃
