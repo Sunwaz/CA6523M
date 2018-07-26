@@ -133,7 +133,7 @@ void app_net(void)
 		case 0:{//应用判断判断
 			if((g_sys_tim_s & 0xFF) != s_old_time)s_run_cnt = 1;//发送数据的优先级最高
 			else  if(g_cail_data.flag)            s_run_cnt = 2;//再次是校准设备
-			else  if(g_adc_get_flag)              s_run_cnt = 3;//最后是数据采样
+			else  if((g_adc_get_flag)&&(g_wait_flag!=1))s_run_cnt = 3;//最后是数据采样
 			else  if(g_sys_param.updat_flag)      s_run_cnt = 4;//网络数据更新
 			else  if(g_up_config_flag)            s_run_cnt = 5;//配置信息上传
 			else  if(g_crt_run_cnt!=g_crt_fun_cnt)s_run_cnt = 6;//串口数据发送
@@ -178,6 +178,7 @@ void app_net(void)
 			break;}
 		case 7:{//数据监控
 			s_run_cnt = 0;
+			USART_CRT_FunAdd(USART_SendSenserSta);
 			USART_CRT_FunAdd(USART_SendMonitorData);
 			break;}
 		case 8:{//模块重启

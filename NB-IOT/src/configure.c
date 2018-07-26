@@ -387,7 +387,7 @@ void runstate_to_usart(char* cmd)
 							2018-05-04				系统数据最新的是int型的数组,在保存的时候,应先由int型转换成char型再保存,删除数据更新
 							2018-05-17				端口部分的设置程序有问题,已修复
 							2018-06-08				删除全局变量 Device_IDchar Serv_Ipchar UDPPort UDPPortchar等
-							2018-07-27				函数优化,在存flash之前修改一下采样时间
+							2018-07-23				函数优化,在存flash之前修改一下采样时间
  ****************************************************************************/
 void network_parameterUpdata(void)
 {

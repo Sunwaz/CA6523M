@@ -117,8 +117,8 @@
 #define SENSER_CHECK_PORT													GPIOB
 #define SENSER_CHECK_PIN													GPIO_Pin_0
 
-#define SENSER_CHECK_OPEN													GPIO_SetBits( 	SENSER_CHECK_PORT , SENSER_CHECK_PIN )
-#define SENSER_CHECK_CLOS													GPIO_ResetBits(	SENSER_CHECK_PORT , SENSER_CHECK_PIN )
+#define SENSER_CHECK_OPEN													GPIO_ResetBits( SENSER_CHECK_PORT , SENSER_CHECK_PIN )
+#define SENSER_CHECK_CLOS													GPIO_SetBits(	  SENSER_CHECK_PORT , SENSER_CHECK_PIN )
 
 #define RCC_ADC_CMD																RCC_APB2PeriphClockCmd
 #define RCC_ADC_CLK																RCC_APB2Periph_ADC1
@@ -220,8 +220,16 @@ static uint16_t s_old_adc     = 0;
 adc_cail				g_cail_data;																							    //校准数据
 Msg_data				g_coll_data[ADC_SIZE];	                                      //采集上来的数据
 uint8_t					g_early_alarm = 0;												                    //预警标志位
-int32_t					g_camp_value = 0;																					     //采样值
-
+int32_t					g_camp_value = 0;																					    //采样值
+uint16_t        g_senser_flag = 0;																						//传感器状态
+/*
+g_senser_flag   电压1	电压2	电压3	电流1	电流2	电流3	温度1	温度2	温度3	漏电流1	漏电流2	漏电流3	环境温度1	环境温度2
+     bit0	bit1	bit2	bit3	bit4	bit5	bit6	bit7	bit8	bit9	bit10	bit11	   bit12	 bit13	  bit14	    bit15
+正常	0	   0	   0	   0	   0	   0	   0	   0	   0	   0	   0	   0	      0	      0	       0	       0
+故障	0	   1	  正常	正常	正常	正常	正常	正常	正常	正常	正常	正常	   正常	   正常	    正常	    正常
+恢复	1	   0	   1	   1	   1	   1	   1	   1	   1	   1	   1	   1	      1	      1	       1	       1
+		   	        操作	操作	操作	操作	操作	操作	操作	操作	操作	操作	   操作	   操作	    操作	    操作
+*/
 /* 系统函数	------------------------------------------------------------------*/
 /*****************************************************************************
  * 函数功能:		CD4051初始化
@@ -793,7 +801,8 @@ static void ADC_ChannelChange( CD4051_CHANNEL channel )
 		default:
 			break;
 	}
-	delay_ms(500);
+	g_wait_flag = 1;//等待500ms,一个定时周期
+	SysTimeReset();
 }
 
 /*****************************************************************************
@@ -802,14 +811,22 @@ static void ADC_ChannelChange( CD4051_CHANNEL channel )
  * 返回参数:		无
  * 更改日期;		2018-07-03				函数编写
  ****************************************************************************/
-void ADC_DataRead(CD4051_CHANNEL ch , uint8_t adc_num , int32_t* camp)
+ErrorStatus ADC_DataRead(CD4051_CHANNEL ch , uint8_t adc_num , int32_t* camp)
 {
-	s_old_adc = 0;
-	s_adc_num = adc_num;														//采样类型
-	(*camp)	  = 0;																	//采样数据清空
-	if(ch != CHANNEL_NULL)ADC_ChannelChange( ch );	//CD4051通道的更改
-	s_adc_collect_flag = 1;													//启动采样
-  while(s_adc_collect_flag);											//等待采样结束
+	if(!g_wait_flag)
+	{
+		s_old_adc = 0;
+		s_adc_num = adc_num;														//采样类型
+		(*camp)	  = 0;																	//采样数据清空
+		if(ch != CHANNEL_NULL)ADC_ChannelChange( ch );	//CD4051通道的更改
+		else g_wait_flag = 2;
+	}
+	if(g_wait_flag==2)
+	{
+		s_adc_collect_flag = 1;													//启动采样
+		while(s_adc_collect_flag);											//等待采样结束
+		g_wait_flag = 0;
+	}
 }
 
 /*****************************************************************************
@@ -857,6 +874,125 @@ double ADC_DataSave(uint8_t adc_num , int32_t *camp , double cail , PART type , 
 	}
 	return adc_value;
 }
+
+/*****************************************************************************
+ * 函数功能:		传感器检测
+ * 形式参数:		type 高位为类型 低位为通道
+ * 返回参数:		无
+ * 更改日期;		2018-07-26				函数编写
+ ****************************************************************************/
+void ADC_SenserCheck(uint8_t type)
+{
+	s_camp_cnt				= 0;						    //采样次数清零
+	g_camp_value      = 0;								//采样值清零
+	SENSER_CHECK_OPEN;                    //打开开关
+	switch(type)
+	{
+		case 0x00:{//电压传感器,通道1
+			break;}
+		case 0x10:{//电流传感器,通道1
+			break;}
+		case 0x11:{//电流传感器,通道2
+			break;}
+		case 0x12:{//电流传感器,通道3
+			break;}
+		case 0x20:{//温度传感器,通道1
+			if(!(g_sys_param.shield.temp & 0x01))break;//不进行采集和计算
+			if((g_coll_data[TEMP1_DATA_INDEX].data_value < -40) && ((g_senser_flag & 0x03) != 0x02))
+			{
+				if(!(g_senser_flag & 0x100))
+				{
+					g_senser_flag |= 0x101;//温度传感器故障
+				}
+			}else
+			{
+				if(g_senser_flag & 0x100)
+				{
+					if((g_senser_flag & 0x03) != 0x02)//如果有传感器是故障传感器,则整个状态清零
+					{
+						g_senser_flag = 0;
+					}else
+					{
+						g_senser_flag &=~ 0x03;
+					}
+					g_senser_flag |= 0x102;//温度传感器恢复
+				}
+			}break;}
+		case 0x21:{//温度传感器,通道2
+			if(!(g_sys_param.shield.temp & 0x02))break;//不进行采集和计算
+			if((g_coll_data[TEMP2_DATA_INDEX].data_value < -40) && ((g_senser_flag & 0x03) != 0x02))
+			{
+				if(!(g_senser_flag & 0x200))
+				{
+					g_senser_flag |= 0x201;//温度传感器故障
+				}
+			}else
+			{
+				if(g_senser_flag & 0x200)
+				{
+					if((g_senser_flag & 0x03) != 0x02)//如果有传感器是故障传感器,则整个状态清零
+					{
+						g_senser_flag = 0;
+					}else
+					{
+						g_senser_flag &=~ 0x03;
+					}
+					g_senser_flag |= 0x202;//温度传感器恢复
+				}
+			}break;}
+//		case 0x22:{//温度传感器,通道3
+//			if(!(g_sys_param.shield.temp & 0x03))break;//不进行采集和计算
+//			if((g_coll_data[TEMP3_DATA_INDEX].data_value < -40) && ((g_senser_flag & 0x03) != 0x02))
+//			{
+//				if(!(g_senser_flag & 0x400))
+//				{
+//					g_senser_flag |= 0x401;//温度传感器故障
+//				}
+//			}else
+//			{
+//				if(g_senser_flag & 0x400)
+//				{
+//					if((g_senser_flag & 0x03) != 0x02)//如果有传感器是故障传感器,则整个状态清零
+//					{
+//						g_senser_flag = 0;
+//					}else
+//					{
+//						g_senser_flag &=~ 0x03;
+//					}
+//					g_senser_flag |= 0x402;//温度传感器恢复
+//				}
+//			}break;}
+		case 0x30:{//剩余电流传感器,通道1
+			if(!(g_sys_param.shield.volat & 0x01))break;//不进行采集和计算
+			s_adc_collect_flag = 1;
+			while(s_adc_collect_flag);
+			g_camp_value >>= ADC_SAMPLING_MOVE;//大于600则为丢失
+			if(((g_camp_value >= 0x600) || (g_camp_value <= 0x100)) && ((g_senser_flag & 0x03) != 0x02))//未接传感器/传感器故障
+			{
+				if(!(g_senser_flag & 0x800))
+				{
+					g_senser_flag |= 0x801;//剩余电流传感器故障
+				}
+			}else
+			{
+				if(g_senser_flag & 0x800)
+				{
+					if((g_senser_flag & 0x03) != 0x02)//如果有传感器是故障传感器,则整个状态清零
+					{
+						g_senser_flag = 0;
+					}else
+					{
+						g_senser_flag &=~ 0x03;
+					}
+					g_senser_flag |= 0x802;//剩余电流传感器恢复
+				}
+			}break;}
+		default:{//其他
+			break;}
+	}
+	SENSER_CHECK_CLOS;									//关闭开关
+}
+
 /*****************************************************************************
  * 函数功能:		数据采集
  * 形式参数:		无
@@ -867,67 +1003,84 @@ double ADC_DataSave(uint8_t adc_num , int32_t *camp , double cail , PART type , 
 							2018-06-07				函数重写
 							2018-07-17				修复bug;针对电流的adc采样进行分段调整,输入矫正值由0.30141更改为0.2261
 							2018-07-19				函数优化;针对校准程序的使用,本函数添加返回值,反回原始采样值
-							2018-07-27				函数优化;在结束位置清零采样标记,并复位定时器
+							2018-07-23				函数优化;在结束位置清零采样标记,并复位定时器
+							2018-07-26				功能添加;在采样前判断传感器状态(是否丢失,是否被屏蔽)
  ****************************************************************************/
 double ADC_Collection( uint8_t cmd )
 {
-	double re_value = 0.0;
+	double re_value    = 0.0;
 	static uint8_t cnt = 0;
 	uint8_t tmp        = 0;
 	
 	if( cmd == 0xFF )
-		tmp = cnt++;
+		tmp = cnt++;//此处先赋值,再自加
 	else tmp = cmd;
 	s_camp_cnt				= 0;						    //采样次数清零
 	switch(tmp)
 	{
 		case 0:{//电流1数据采集(采集1024次)
+			if((!(g_sys_param.shield.curr & 0x01)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
 			ADC_DataRead( CHANNEL_3 , 1 , &g_camp_value);
 			break;}
 		case 1:{//电流数据读取和计算
 			re_value = ADC_DataSave( 1 , &g_camp_value , 0.2261 , part_curr , &cnt);
-			break;}	
+			if(re_value <= 5){}//开始判断传感器是否丢失
+			break;}
 		case 2:{//电流2数据采集(采集1024次)
+			if((!(g_sys_param.shield.curr & 0x02)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
 			ADC_DataRead( CHANNEL_0 , 6 , &g_camp_value);
 			break;}
 		case 3:{//电流2数据读取
 			re_value = ADC_DataSave( 6 , &g_camp_value , 0.2261 , part_curr , &cnt);
+			if(re_value <= 5){}//开始判断传感器是否丢失
 			break;}
 		case 4:{//电流3数据采集(采集1024次)
+			if((!(g_sys_param.shield.curr & 0x04)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
 			ADC_DataRead( CHANNEL_2 , 7 , &g_camp_value );
 			break;}
 		case 5:{//电流3数据读取
 			re_value = ADC_DataSave( 7 , &g_camp_value , 0.2261 , part_curr , &cnt);//2261
+			if(re_value <= 5){}//开始判断传感器是否丢失
 			break;}
 		case 6:{//剩余电流数据采集(采集1024次)
+			if((!(g_sys_param.shield.sy_curr & 0x01)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
 			ADC_DataRead( CHANNEL_NULL , 2 , &g_camp_value );
 			break;}
 		case 7:{//剩余电流数据读取
 			re_value = ADC_DataSave( 2 , &g_camp_value , 5.1859 , part_sycu , &cnt);//5.1859    6.7967
+			if(re_value <= 5){ADC_SenserCheck(0x30);}//开始判断传感器是否丢失
+			else g_senser_flag &=~ 0x1000;//传感器正常
 			break;}
 		case 8:{//电压数据采集(采集1024次)
+			if((!(g_sys_param.shield.volat & 0x01)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
 			ADC_DataRead( CHANNEL_1 , 3 , &g_camp_value );
 			break;}
 		case 9:{//电压数据读取
 			re_value = ADC_DataSave( 3 , &g_camp_value , 2.26056 , part_volt , &cnt);
 			break;}
 		case 10:{//温度1数据采集(采集1024次)
+			if((!(g_sys_param.shield.temp & 0x01)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
 			ADC_DataRead( CHANNEL_NULL , 4 , &g_camp_value );
 			break;}
 		case 11:{//温度1数据读取
 			re_value = ADC_DataSave( 4 , &g_camp_value , 0.0 , part_temp , &cnt);
+			ADC_SenserCheck(0x20);//开始判断传感器是否丢失
 			break;}
 		case 12:{//温度2数据采集(采集1024次)
+			if((!(g_sys_param.shield.temp & 0x02)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
 			ADC_DataRead( CHANNEL_NULL , 5 , &g_camp_value );
 			break;}
 		case 13:{//温度2数据读取
 			re_value = ADC_DataSave( 5 , &g_camp_value , 0.0 , part_temp , &cnt);
+			ADC_SenserCheck(0x21);//开始判断传感器是否丢失
 			break;}
 		/*case 14:{//温度3数据采集(采集1024次)
+			if((!(g_sys_param.shield.temp & 0x04)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
 			ADC_DataRead( CHANNEL_NULL , 8 , &g_camp_value );
 			break;}
 		case 15:{//温度3数据读取
 			re_value = ADC_DataSave( 8 , &g_camp_value , 0.0 , part_temp , &cnt);
+			if(re_value <= -400){ADC_SenserCheck(0x22);}//开始判断传感器是否丢失
 			break;}*/
 		default:{//采样完成
 			cnt = 0;
@@ -935,6 +1088,7 @@ double ADC_Collection( uint8_t cmd )
 			CampTime_Updeat(&g_sys_param.camp_time);//采样时间更新
 			break;}
 	}
+	if(g_wait_flag==1)cnt--;
 	return re_value;
 }
 

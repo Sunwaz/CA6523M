@@ -47,6 +47,7 @@ void USART_SendCail(void);
 void USART_CRT_FunAdd( void fun(void) );
 void USART_SendError(void);
 void USART_SendMonitorData(void);
+void USART_SendSenserSta(void);
 #endif       /*__usart_H end*/
 
 /*------------------------------File----------End------------------------------*/

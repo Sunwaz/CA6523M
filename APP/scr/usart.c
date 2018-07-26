@@ -616,63 +616,72 @@ void USART_SendThread(void)
 void USART_SendMonitorData(void)
 {
 	uint8_t i = 0;
+	uint8_t tmp = 0;
 	
 	USART_RX1_CNT = 2;
 	USART_RX1_BUF[0] = 0xAA;
 	
 	USART_RX1_BUF[USART_RX1_CNT++]		= 0x06;//上传监控数据
-	USART_RX1_BUF[USART_RX1_CNT++]		= 0x07;//上传配置信息个数
+	USART_RX1_BUF[USART_RX1_CNT++]		= tmp;//上传配置信息个数
 
-	if(1){//温度报警阈值
+	if(g_sys_param.shield.temp & 0x01){//温度报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x06;//温度报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//温度报警阈值长度
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//温度报警阈值地址
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[TEMP1_DATA_INDEX].data_value >> 0x00) & 0xFF;
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[TEMP1_DATA_INDEX].data_value >> 0x08) & 0xFF;
+		tmp++;
 	}
-	if(2){//温度报警阈值
+	if(g_sys_param.shield.temp & 0x02){//温度报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x06;//温度报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//温度报警阈值长度
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x02;//温度报警阈值地址
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[TEMP2_DATA_INDEX].data_value >> 0x00) & 0xFF;
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[TEMP2_DATA_INDEX].data_value >> 0x08) & 0xFF;
+		tmp++;
 	}
-	if(3){//电流报警阈值
+	if(g_sys_param.shield.curr & 0x01){//电流报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x07;//电流报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//电流报警阈值长度
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//电流报警阈值地址
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[CURR1_DATA_INDEX].data_value >> 0x00) & 0xFF;
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[CURR1_DATA_INDEX].data_value >> 0x08) & 0xFF;
+		tmp++;
 	}
-	if(4){//电流报警阈值
+	if(g_sys_param.shield.curr & 0x02){//电流报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x07;//电流报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//电流报警阈值长度
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x02;//电流报警阈值地址
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[CURR2_DATA_INDEX].data_value >> 0x00) & 0xFF;
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[CURR2_DATA_INDEX].data_value >> 0x08) & 0xFF;
+		tmp++;
 	}
-	if(5){//电流报警阈值
+	if(g_sys_param.shield.curr & 0x04){//电流报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x07;//电流报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//电流报警阈值长度
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//电流报警阈值地址
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[CURR3_DATA_INDEX].data_value >> 0x00) & 0xFF;
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[CURR3_DATA_INDEX].data_value >> 0x08) & 0xFF;
+		tmp++;
 	}
-	if(6){//电压报警阈值
+	if(g_sys_param.shield.volat & 0x01){//电压报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x08;//电压报警阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//电压报警阈值长度
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//电压报警阈值地址
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[VOLAT_DATA_INDEX].data_value >> 0x00) & 0xFF;
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[VOLAT_DATA_INDEX].data_value >> 0x08) & 0xFF;
+		tmp++;
 	}
-	if(7){//剩余电流阈值
+	if(g_sys_param.shield.sy_curr & 0x01){//剩余电流阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x09;//剩余电流阈值
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//剩余电流阈值长度
 		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//剩余电流阈值地址
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[SY_CURR_DATA_INDEX].data_value >> 0x00) & 0xFF;
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[SY_CURR_DATA_INDEX].data_value >> 0x08) & 0xFF;
+		tmp++;
 	}
 	USART_RX1_BUF[1] = USART_RX1_CNT;//数据长度
+	USART_RX1_BUF[3] = tmp;          //数据长度
 	USART_RX1_BUF[USART_RX1_CNT] = 0;
 	for(i = 0;i < USART_RX1_BUF[1];i++)
 	{
@@ -745,28 +754,107 @@ void USART_SendModelMsg(void)
 }
 
 /*****************************************************************************
- * 函数功能:	串口异常处理
+ * 函数功能:	发送传感器状态
  * 形式参数:	无
  * 返回参数:	无
- * 修改日期:	2018-07-17					文档移植
+ * 修改日期:	2018-07-26					文档编写
  ****************************************************************************/
-void USART_ERROR_Header(USART_TypeDef* USARTx)
+void USART_SendSenserSta(void)
 {
-	if(USART_GetFlagStatus(USARTx , USART_FLAG_ORE ) != RESET)//清除ORE中断
-	{
-		USART_ReceiveData(USARTx); //取出来扔掉
-		USART_ClearFlag(USARTx , USART_FLAG_ORE);
-	}
-	if(USART_GetFlagStatus(USARTx , USART_FLAG_FE) != RESET)
-	{
-		USART_ClearFlag(USARTx , USART_FLAG_FE);
-	}
-	if(USART_GetFlagStatus(USARTx , USART_FLAG_NE) != RESET)
-	{
-		USART_ClearFlag(USARTx , USART_FLAG_NE);
-	}
-}
+	uint8_t i = 0;
+	uint8_t tmp = 0;
+	
+	USART_RX1_CNT = 2;
+	USART_RX1_BUF[0] = 0xAA;
+	
+	USART_RX1_BUF[USART_RX1_CNT++]		= 0x10;//上传传感器状态
+	USART_RX1_BUF[USART_RX1_CNT++]		= tmp; //上传传感器状态信息个数
 
+	if(1){//发送火警信号
+		if(g_alarm_flag)
+		{
+			USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//发送火警
+			USART_RX1_BUF[USART_RX1_CNT++]	= 0x04;//模块型号长度
+			USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x00) & 0xFF;
+			USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x08) & 0xFF;
+			USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x10) & 0xFF;
+			USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x18) & 0xFF;
+			USART_RX1_BUF[3]		= ++tmp;         //上传传感器状态信息个数
+		}
+	}
+	if(2){//发送故障恢复信号/故障信号
+		if((g_senser_flag & 0x03) == 0x02)//恢复
+		{
+			USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//发送故障恢复
+			USART_RX1_BUF[USART_RX1_CNT++]	= 0x02;//故障恢复长度
+			USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x00) & 0xFF;
+			USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x08) & 0xFF;
+			USART_RX1_BUF[3]		= ++tmp;         //上传传感器状态信息个数
+		}else if((g_senser_flag & 0x03) == 0x01)//故障
+		{
+			USART_RX1_BUF[USART_RX1_CNT++]	= 0x02;//发送故障恢复
+			USART_RX1_BUF[USART_RX1_CNT++]	= 0x02;//故障恢复长度
+			USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x00) & 0xFF;
+			USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x08) & 0xFF;
+			USART_RX1_BUF[3]		= ++tmp;         //上传传感器状态信息个数
+		}
+	}
+	USART_RX1_BUF[1] = USART_RX1_CNT;//数据长度
+	USART_RX1_BUF[USART_RX1_CNT] = 0;
+	for(i = 0;i < USART_RX1_BUF[1];i++)
+	{
+		USART_RX1_BUF[USART_RX1_CNT] += USART_RX1_BUF[i];
+	}
+	USART_RX1_BUF[++USART_RX1_CNT] = 0x55;
+
+	USART_CONFIG_SEND(USART_RX1_BUF , USART_RX1_CNT+1);
+}
+/*****************************************************************************
+ * 函数功能:	发送传感器屏蔽状态
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-07-18					文档编写
+ ****************************************************************************/
+void USART_SendSenserShield(void)
+{
+	uint8_t i = 0;
+	uint8_t tmp = 0;
+	
+	USART_RX1_CNT = 2;
+	USART_RX1_BUF[0] = 0xAA;
+	
+	USART_RX1_BUF[USART_RX1_CNT++]		= 0x10;//上传传感器状态
+	USART_RX1_BUF[USART_RX1_CNT++]		= 0x04;//上传传感器状态信息个数
+	if(1){//温度传感器屏蔽
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x15;//温度传感器屏蔽类型
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//温度传感器屏蔽长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= g_sys_param.shield.temp;//温度传感器屏蔽数据
+	}
+	if(2){//电流传感器屏蔽
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x16;//电流传感器屏蔽类型
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//电流传感器屏蔽长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= g_sys_param.shield.curr;//电流传感器屏蔽数据
+	}
+	if(3){//电压传感器屏蔽
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x17;//电压传感器屏蔽类型
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//电压传感器屏蔽长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= g_sys_param.shield.volat;//电压传感器屏蔽数据
+	}
+	if(4){//剩余电流传感器屏蔽
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x18;//电压传感器屏蔽类型
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//电压传感器屏蔽长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= g_sys_param.shield.sy_curr;//电压传感器屏蔽数据
+	}
+	USART_RX1_BUF[1] = USART_RX1_CNT;//数据长度
+	USART_RX1_BUF[USART_RX1_CNT] = 0;
+	for(i = 0;i < USART_RX1_BUF[1];i++)
+	{
+		USART_RX1_BUF[USART_RX1_CNT] += USART_RX1_BUF[i];
+	}
+	USART_RX1_BUF[++USART_RX1_CNT] = 0x55;
+
+	USART_CONFIG_SEND(USART_RX1_BUF , USART_RX1_CNT+1);
+}
 
 /*****************************************************************************
  * 函数功能:	串口发送函数
@@ -777,7 +865,7 @@ void USART_ERROR_Header(USART_TypeDef* USARTx)
 void USART_CRT_FunAdd( void fun(void) )
 {
 	crt_fun[g_crt_fun_cnt] = fun;
-	if(++g_crt_fun_cnt ==  CRT_FUN_CNT)g_crt_fun_cnt = 0;
+	if(++g_crt_fun_cnt == CRT_FUN_CNT)g_crt_fun_cnt = 0;
 	if(g_crt_fun_cnt   == g_crt_run_cnt)
 	{
 		if(++g_crt_run_cnt ==  CRT_FUN_CNT)g_crt_run_cnt = 0;
@@ -995,6 +1083,16 @@ void USART_485_DataHandle(uint8_t* buff , uint8_t length)
 		case 0x00://应答信息
 			if(g_crt_run_cnt != g_crt_fun_cnt)
 			{
+				if(crt_fun[g_crt_run_cnt] == USART_SendSenserSta)
+				{
+					if((g_senser_flag&0x03) == 0x01)
+					{
+						g_senser_flag &=~ 0x03;
+					}else if((g_senser_flag & 0x03) == 0x02)
+					{
+						g_senser_flag = 0;
+					}
+				}
 				crt_fun[g_crt_run_cnt] = NULL;
 				if(++g_crt_run_cnt == CRT_FUN_CNT)g_crt_run_cnt = 0;
 				g_ack_flag = 0;
@@ -1015,13 +1113,39 @@ void USART_485_DataHandle(uint8_t* buff , uint8_t length)
 			break;
 		case 0x04://打开数据监控
 			g_monitor_flag = 1;
+		  g_senser_flag  = 0;
+			USART_CRT_FunAdd(USART_SendSenserShield);
+			USART_CRT_FunAdd(USART_SendOK);//发送应答信号
 			break;
 		case 0x05://关闭数据监控
 			g_monitor_flag = 0;
+			USART_CRT_FunAdd(USART_SendOK);//发送应答信号
 			break;
 		case 0x07://下传校准信息
 			USART_CailHander(&buff[1]);
 			break;
+	}
+}
+/*****************************************************************************
+ * 函数功能:	串口异常处理
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-07-17					文档移植
+ ****************************************************************************/
+void USART_ERROR_Header(USART_TypeDef* USARTx)
+{
+	if(USART_GetFlagStatus(USARTx , USART_FLAG_ORE ) != RESET)//清除ORE中断
+	{
+		USART_ReceiveData(USARTx); //取出来扔掉
+		USART_ClearFlag(USARTx , USART_FLAG_ORE);
+	}
+	if(USART_GetFlagStatus(USARTx , USART_FLAG_FE) != RESET)
+	{
+		USART_ClearFlag(USARTx , USART_FLAG_FE);
+	}
+	if(USART_GetFlagStatus(USARTx , USART_FLAG_NE) != RESET)
+	{
+		USART_ClearFlag(USARTx , USART_FLAG_NE);
 	}
 }
 /*****************************************************************************
@@ -1045,6 +1169,7 @@ void USART_485_IRQnHandle(void)
 			g_crt_flag = 1;
 			g_crt_time = 20;//20s超时时间
 			USART_RX1_CNT = 0;
+			s_len = 0;
 		}else if((g_crt_flag) && (!s_len))//收到数据长度
 		{
 			s_len = re_data;

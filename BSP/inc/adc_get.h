@@ -93,6 +93,7 @@ typedef struct{																		//校准数据
 /* 全局变量	----------------------------------------------------------------*/
 extern Msg_data g_coll_data[ADC_SIZE];	          //采集上来的数据
 extern adc_cail g_cail_data;											//校准数据
+extern uint16_t g_senser_flag;										//传感器状态
 /* 接口提供	----------------------------------------------------------------*/
 void ADC_GetConfig( void );												//ADC初始化
 void ADC_DMAIRQnHandle( void );										//DMA中断服务函数
