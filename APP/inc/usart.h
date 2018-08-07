@@ -48,6 +48,7 @@ void USART_CRT_FunAdd( void fun(void) );
 void USART_SendError(void);
 void USART_SendMonitorData(void);
 void USART_SendSenserSta(void);
+void CRT_FunMove(void);
 #endif       /*__usart_H end*/
 
 /*------------------------------File----------End------------------------------*/

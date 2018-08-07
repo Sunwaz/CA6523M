@@ -386,7 +386,7 @@ uint8_t parse_trans_anjisi_RX(uint8_t *data_rx , uint16_t *len)
 		g_net_app_queue[g_queue_idex_s].type = type_null_dat;		//当前数据设置为空
 		data_index_move();
 	}
-	LED_Control( L_ERROR , CLOS );
+	if(!g_senser_flag)LED_Control( L_ERROR , CLOS );
 	//解析数据
 	switch((cmd_type)(data_rx[NET_CMD]))
 	{

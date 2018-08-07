@@ -103,7 +103,7 @@ void Sys_TimerIRQnHandle( void )
 			if(g_crt_time>0)g_crt_time--;
 			else g_crt_flag = 0;
 			g_sys_tim_s++;
-			if((g_adc_time == (g_sys_tim_s&0xFF)) && (!g_adc_get_flag))
+			if((g_adc_time <= (g_sys_tim_s&0xFF)) && (!g_adc_get_flag))
 				g_adc_get_flag = 1;
 		}
 		TIM_ClearITPendingBit( TIM_COM , TIM_IT_Update );

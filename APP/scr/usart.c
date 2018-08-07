@@ -680,6 +680,11 @@ void USART_SendMonitorData(void)
 		USART_RX1_BUF[USART_RX1_CNT++]	= (g_coll_data[SY_CURR_DATA_INDEX].data_value >> 0x08) & 0xFF;
 		tmp++;
 	}
+	if(tmp==0)
+	{
+		CRT_FunMove();
+		return;
+	}
 	USART_RX1_BUF[1] = USART_RX1_CNT;//数据长度
 	USART_RX1_BUF[3] = tmp;          //数据长度
 	USART_RX1_BUF[USART_RX1_CNT] = 0;
@@ -762,42 +767,27 @@ void USART_SendModelMsg(void)
 void USART_SendSenserSta(void)
 {
 	uint8_t i = 0;
-	uint8_t tmp = 0;
 	
 	USART_RX1_CNT = 2;
 	USART_RX1_BUF[0] = 0xAA;
-	
 	USART_RX1_BUF[USART_RX1_CNT++]		= 0x10;//上传传感器状态
-	USART_RX1_BUF[USART_RX1_CNT++]		= tmp; //上传传感器状态信息个数
+	USART_RX1_BUF[USART_RX1_CNT++]		= 2; //上传传感器状态信息个数
 
 	if(1){//发送火警信号
-		if(g_alarm_flag)
-		{
-			USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//发送火警
-			USART_RX1_BUF[USART_RX1_CNT++]	= 0x04;//模块型号长度
-			USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x00) & 0xFF;
-			USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x08) & 0xFF;
-			USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x10) & 0xFF;
-			USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x18) & 0xFF;
-			USART_RX1_BUF[3]		= ++tmp;         //上传传感器状态信息个数
-		}
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x03;//发送火警
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x04;//模块型号长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x00) & 0xFF;
+		USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x08) & 0xFF;
+		USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x10) & 0xFF;
+		USART_RX1_BUF[USART_RX1_CNT++]	= (g_alarm_flag >> 0x18) & 0xFF;
 	}
 	if(2){//发送故障恢复信号/故障信号
-		if((g_senser_flag & 0x03) == 0x02)//恢复
-		{
-			USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//发送故障恢复
-			USART_RX1_BUF[USART_RX1_CNT++]	= 0x02;//故障恢复长度
-			USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x00) & 0xFF;
-			USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x08) & 0xFF;
-			USART_RX1_BUF[3]		= ++tmp;         //上传传感器状态信息个数
-		}else if((g_senser_flag & 0x03) == 0x01)//故障
-		{
-			USART_RX1_BUF[USART_RX1_CNT++]	= 0x02;//发送故障恢复
-			USART_RX1_BUF[USART_RX1_CNT++]	= 0x02;//故障恢复长度
-			USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x00) & 0xFF;
-			USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x08) & 0xFF;
-			USART_RX1_BUF[3]		= ++tmp;         //上传传感器状态信息个数
-		}
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x01;//发送故障
+		USART_RX1_BUF[USART_RX1_CNT++]	= 0x04;//模块型号长度
+		USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x00) & 0xFF;
+		USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x08) & 0xFF;
+		USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x10) & 0xFF;
+		USART_RX1_BUF[USART_RX1_CNT++]	= (g_senser_flag >> 0x18) & 0xFF;
 	}
 	USART_RX1_BUF[1] = USART_RX1_CNT;//数据长度
 	USART_RX1_BUF[USART_RX1_CNT] = 0;
@@ -818,7 +808,6 @@ void USART_SendSenserSta(void)
 void USART_SendSenserShield(void)
 {
 	uint8_t i = 0;
-	uint8_t tmp = 0;
 	
 	USART_RX1_CNT = 2;
 	USART_RX1_BUF[0] = 0xAA;
@@ -864,6 +853,13 @@ void USART_SendSenserShield(void)
  ****************************************************************************/
 void USART_CRT_FunAdd( void fun(void) )
 {
+	uint8_t i = g_crt_run_cnt;
+	
+	while(i != g_crt_fun_cnt)
+	{
+		if(crt_fun[i] == fun)return;
+		if(++i == CRT_FUN_CNT)i = 0;
+	}
 	crt_fun[g_crt_fun_cnt] = fun;
 	if(++g_crt_fun_cnt == CRT_FUN_CNT)g_crt_fun_cnt = 0;
 	if(g_crt_fun_cnt   == g_crt_run_cnt)
@@ -1063,6 +1059,19 @@ void USART_CailHander(uint8_t* buff)
  * 函数功能:	串口数据解析
  * 形式参数:	无
  * 返回参数:	无
+ * 修改日期:	2018-07-27					文档移植
+ ****************************************************************************/
+void CRT_FunMove(void)
+{
+	crt_fun[g_crt_run_cnt] = NULL;
+	if(++g_crt_run_cnt == CRT_FUN_CNT)g_crt_run_cnt = 0;
+	g_ack_flag = 0;
+	g_re_cnt = 0;
+}
+/*****************************************************************************
+ * 函数功能:	串口数据解析
+ * 形式参数:	无
+ * 返回参数:	无
  * 修改日期:	2018-07-17					文档移植
  ****************************************************************************/
 void USART_485_DataHandle(uint8_t* buff , uint8_t length)
@@ -1093,10 +1102,7 @@ void USART_485_DataHandle(uint8_t* buff , uint8_t length)
 						g_senser_flag = 0;
 					}
 				}
-				crt_fun[g_crt_run_cnt] = NULL;
-				if(++g_crt_run_cnt == CRT_FUN_CNT)g_crt_run_cnt = 0;
-				g_ack_flag = 0;
-				g_re_cnt = 0;
+				CRT_FunMove();
 			}
 			break;
 		case 0x01://读取配置信息

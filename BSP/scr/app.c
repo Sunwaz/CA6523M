@@ -20,6 +20,7 @@
 #include "timer.h"
 /* 宏定义	--------------------------------------------------------------------*/
 #define delay_nms											delay_ms
+#define APP_FUN_CNT                   50
 /* 结构体定义	----------------------------------------------------------------*/
 /* 内部引用	------------------------------------------------------------------*/
 void Netconfig_Upload( int8_t* pDr );								//设备配置信息上传
@@ -28,6 +29,9 @@ void runing_state_upload(uint8_t* runing_buff);			//上传运行状态
 void up_per_info(uint8_t* up_data );								//上传操作信息
 void app_run_queue(void);														//队列执行
 /* 全局变量	------------------------------------------------------------------*/
+void (*app_fun[APP_FUN_CNT])(void);									//APP命令队列
+uint8_t g_app_fun_cnt = 0;													//APP命令存放位置
+uint8_t g_app_run_cnt = 0;													//APP命令运行位置
 /* 系统函数	------------------------------------------------------------------*/
 /*****************************************************************************
  * 函数功能:		心跳           数据上传 和 心跳一起上传给服务器
@@ -100,13 +104,7 @@ void CRT_ReSend(void)
 		if(++g_re_cnt == 10)
 		{
 			g_monitor_flag = 0;
-			g_re_cnt = 0;
-			g_ack_flag = 0;
-			crt_fun[g_crt_run_cnt] = NULL;//清零函数
-			if(g_crt_run_cnt != g_crt_fun_cnt)
-			{
-				if(++g_crt_run_cnt == CRT_FUN_CNT)g_crt_run_cnt = 0;
-			}
+			CRT_FunMove();
 		}else
 		{
 			crt_fun[g_crt_run_cnt]();//函数运行
@@ -114,88 +112,135 @@ void CRT_ReSend(void)
 	}
 }
 /*****************************************************************************
+ * 函数功能:	应用进程函数
+ * 形式参数:	函数指针
+ * 返回参数:	无
+ * 修改日期:	2018-08-02					文档移植
+ ****************************************************************************/
+void APP_FunAdd( void fun(void) )
+{
+	uint8_t i = g_app_run_cnt;
+	
+	while(i != g_app_fun_cnt)
+	{
+		if(app_fun[i] == fun)return;
+		if(++i == APP_FUN_CNT)i = 0;
+	}
+	app_fun[g_app_fun_cnt] = fun;
+	if(++g_app_fun_cnt == APP_FUN_CNT)g_app_fun_cnt = 0;
+	if(g_app_fun_cnt   == g_app_run_cnt)
+	{
+		if(++g_app_run_cnt ==  APP_FUN_CNT)g_app_run_cnt = 0;
+	}
+}
+
+/*****************************************************************************
+ * 函数功能:	发送数据
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-08-02					文档移植
+ ****************************************************************************/
+void APP_SendData( void )
+{
+	static uint8_t s_cnt	= 0;				//查询次数
+	
+	CRT_ReSend();
+	Heart_task();								//心跳
+	net_to_module();            //发送数据
+	if(radio.rece != NULL)radio.rece(&s_cnt);//接收数据	
+}
+/*****************************************************************************
+ * 函数功能:	设备校准
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-08-02					文档移植
+ ****************************************************************************/
+void APP_GetADCFun( void )
+{
+	ADC_Collection(0xFF);         //数据采集
+}
+/*****************************************************************************
+ * 函数功能:	启动信息应用
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-08-02					文档移植
+ ****************************************************************************/
+void APP_ConfigFun( void )
+{
+	sys_app(type_upload_startup);
+}
+/*****************************************************************************
+ * 函数功能:	监控数据应用
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-08-02					文档移植
+ ****************************************************************************/
+void APP_MonitorFun( void )
+{
+	USART_CRT_FunAdd(USART_SendSenserSta);
+	USART_CRT_FunAdd(USART_SendMonitorData);
+}
+/*****************************************************************************
+ * 函数功能:	操作信息上传应用
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-08-02					文档移植
+ ****************************************************************************/
+void APP_OperationFun( void )
+{
+	sys_app(type_oper_info);
+}
+
+/*****************************************************************************
  * 函数功能:		网络应用
  * 形式参数:		无
  * 返回参数:		无
  * 更改日期;		2018-03-07				函数移植
-								2018-06-01				修复bug;同一个时间点多次填装数据,发送数据
-								2018-06-11				函数优化;函数重新编写
-								2018-07-24				函数优化;增加模块的初始化流程和以前的复位流程合并,更改了发送操作信息的优先级
+							2018-06-01				修复bug;同一个时间点多次填装数据,发送数据
+							2018-06-11				函数优化;函数重新编写
+							2018-07-24				函数优化;增加模块的初始化流程和以前的复位流程合并,更改了发送操作信息的优先级
+							2018-08-02				函数优化;应用进程的添加优化,使用函数指针数组的形式添加,去掉以前的switch方式
  ****************************************************************************/ 
 void app_net(void)
 {
-	static uint8_t s_run_cnt  = 0;				//运行的类别
 	static uint8_t s_old_time = 0;				//旧时间
-	static uint8_t s_cnt      = 0;				//查询次数
+	static uint8_t s_up_flag = 0;
 	
-	switch(s_run_cnt)
-	{
-		case 0:{//应用判断判断
-			if((g_sys_tim_s & 0xFF) != s_old_time)s_run_cnt = 1;//发送数据的优先级最高
-			else  if(g_cail_data.flag)            s_run_cnt = 2;//再次是校准设备
-			else  if((g_adc_get_flag)&&(g_wait_flag!=1))s_run_cnt = 3;//最后是数据采样
-			else  if(g_sys_param.updat_flag)      s_run_cnt = 4;//网络数据更新
-			else  if(g_up_config_flag)            s_run_cnt = 5;//配置信息上传
-			else  if(g_crt_run_cnt!=g_crt_fun_cnt)s_run_cnt = 6;//串口数据发送
-			else  if(g_monitor_flag)              s_run_cnt = 7;//数据监控
-			else  if(!g_model_config_flag)				s_run_cnt = 8;//模块初始化
-			else	if(g_sys_operation_msg)         s_run_cnt = 9;//其次是发送操作信息
-			break;}
-		case 1:{//发送数据
-			s_run_cnt = 0;
-			CRT_ReSend();
-			Heart_task();								//心跳
-			net_to_module();            //发送数据
-			if(radio.rece != NULL)radio.rece(&s_cnt);//接收数据		
-			s_old_time = g_sys_tim_s & 0xFF;
-			break;}
-		case 2:{//数据校准
-			s_run_cnt = 0;
-			g_cail_data.flag = 0;
-			ADC_Cail();                 //ADC校准
-			break;}
-		case 3:{//数据采样
-			s_run_cnt = 0;
-			ADC_Collection(0xFF);         //数据采集
-			break;}
-		case 4:{//网络数据更新
-			s_run_cnt = 0;
-			g_sys_param.updat_flag = 0;//更新标志清空
-			network_parameterUpdata();//更新网络参数(字符串转成数字)	
-			break;}
-		case 5:{//配置信息上传
-			s_run_cnt = 0;
-			g_up_config_flag = 0;
-			sys_app(type_upload_startup);
-			break;}
-		case 6:{//串口数据发送
-			s_run_cnt = 0;
-			if((!g_ack_flag) && (crt_fun[g_crt_run_cnt] != NULL))
-			{
-				g_ack_flag = 1;
-				crt_fun[g_crt_run_cnt]();//函数运行
-			}
-			break;}
-		case 7:{//数据监控
-			s_run_cnt = 0;
-			USART_CRT_FunAdd(USART_SendSenserSta);
-			USART_CRT_FunAdd(USART_SendMonitorData);
-			break;}
-		case 8:{//模块重启
-			s_run_cnt = 0;
-			Nbiot_reset();
-			break;}
-		case 9:{//添加操作信息
-			s_run_cnt = 0;
-			sys_app(type_oper_info);
-			break;}
-		default:{//其他
-			s_run_cnt = 0;
-			break;}
+	if((g_sys_tim_s & 0xFF) != s_old_time){ //定时器应用,1s执行1次
+		APP_FunAdd(APP_SendData);
+		if(g_crt_run_cnt != g_crt_fun_cnt){	  //串口应用运行
+		if((!g_ack_flag) && (crt_fun[g_crt_run_cnt] != NULL)){
+			g_ack_flag = 1;
+			crt_fun[g_crt_run_cnt]();}}//函数运行
+		s_old_time = g_sys_tim_s & 0xFF;}
+	if(g_cail_data.flag){                   //设备校准应用,接收到1次校准命令执行一次
+		APP_FunAdd(ADC_Cail);
+		g_cail_data.flag = 0;}
+	if(g_adc_get_flag && (g_wait_flag != 1)){//获取数据应用,执行一次添加一次
+			APP_FunAdd(APP_GetADCFun);}
+	if(g_sys_param.updat_flag){              //升级设备应用,接收到一次执行一次
+		APP_FunAdd(network_parameterUpdata);
+		g_sys_param.updat_flag = 0;}//更新标志清空
+	if(g_up_config_flag){										 //上传配置信息应用,接收到一次执行一次
+		APP_FunAdd(APP_ConfigFun);
+		g_up_config_flag = 0;}
+	if(g_monitor_flag){											 //上传监控数据应用,运行一次执行一次
+		APP_FunAdd(APP_MonitorFun);}
+	if(!g_model_config_flag){								 //模块复位应用,运行一次执行一次
+		APP_FunAdd(Nbiot_reset);}
+	if(g_sys_operation_msg && !s_up_flag){   //上传操作信息应用,运行一次执行一次
+		APP_FunAdd(APP_OperationFun);
+		s_up_flag = 1;
+	}else s_up_flag = 0;
+	
+	if(app_fun[g_app_run_cnt] != NULL){
+		app_fun[g_app_run_cnt]();//函数运行
+		app_fun[g_app_run_cnt] = NULL;
+		if(++g_app_run_cnt == APP_FUN_CNT)g_app_run_cnt = 0;
+	}else{
+	if(++g_app_run_cnt == APP_FUN_CNT)g_app_run_cnt = 0;
 	}
 }
-
-
 /*****************************************************************************
  * 函数功能:时间数据的拷贝
  * 形式参数:		无
