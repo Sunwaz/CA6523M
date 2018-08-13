@@ -1092,7 +1092,7 @@ void USART_485_DataHandle(uint8_t* buff , uint8_t length)
 		case 0x00://Ó¦´ðÐÅÏ¢
 			if(g_crt_run_cnt != g_crt_fun_cnt)
 			{
-				if(crt_fun[g_crt_run_cnt] == USART_SendSenserSta)
+				/*if(crt_fun[g_crt_run_cnt] == USART_SendSenserSta)
 				{
 					if((g_senser_flag&0x03) == 0x01)
 					{
@@ -1101,7 +1101,7 @@ void USART_485_DataHandle(uint8_t* buff , uint8_t length)
 					{
 						g_senser_flag = 0;
 					}
-				}
+				}*/
 				CRT_FunMove();
 			}
 			break;

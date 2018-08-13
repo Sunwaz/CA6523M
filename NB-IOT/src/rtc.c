@@ -29,14 +29,17 @@ uint8_t RTC_Config(void)
 {
   //检查是不是第一次配置时钟
   uint8_t temp = 0;											   //循环变量
+	uint8_t test = 0;
+	
+	
 	RTC_InitTypeDef  newRTC_Init;
   
 	RCC_APB1PeriphClockCmd( RCC_APB1Periph_PWR , ENABLE );	//使能PWR 外设时钟
 	
   PWR_BackupAccessCmd( ENABLE );	      //使能后备寄存器访问
   
-  RCC_BackupResetCmd( ENABLE );
-  RCC_BackupResetCmd( DISABLE );
+//  RCC_BackupResetCmd( ENABLE );
+//  RCC_BackupResetCmd( DISABLE );
   
   RCC_LSICmd( ENABLE );                 //使能LSI时钟
   while(( RCC_GetFlagStatus( RCC_FLAG_LSIRDY ) == RESET ) && ( temp < 0xFF ))	//检查指定的RCC标志位设置与否,等待低速晶振就绪
@@ -57,7 +60,7 @@ uint8_t RTC_Config(void)
   RTC_Init( &newRTC_Init );
  
   /*2> RTC 时钟设置*/
-  return RTC_Set( 2017 , 1 , 1 , 1 , 1 , 1 );//ok
+  return  RTC_Set( 2017 , 1 , 1 , 1 , 1 , 1 );//ok
 }
 
 /*****************************************************************************

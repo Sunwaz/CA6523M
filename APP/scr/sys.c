@@ -76,6 +76,6 @@ void Sys_Init(void)
 	Timer_Config();
 	Network_Config();
 	KeyLED_Config();
-//	IWDG_Config();
+	IWDG_Config();
 }
 /*------------------------------File----------End------------------------------*/

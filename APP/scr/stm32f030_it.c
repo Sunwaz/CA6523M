@@ -68,6 +68,7 @@ void HardFault_Handler(void)
     /* Go to infinite loop when Hard Fault exception occurs */
 //		OPEN_POWER_LED;
 	g_sys_error_flag = 1;
+	LED_Control( L_CLEAR , OPEN);
 	while (1)
 	{
 	}

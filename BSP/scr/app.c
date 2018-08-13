@@ -190,7 +190,26 @@ void APP_OperationFun( void )
 {
 	sys_app(type_oper_info);
 }
-
+/*****************************************************************************
+ * 函数功能:	传感器运行状态上传应用
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-08-10					文档移植
+ ****************************************************************************/
+void APP_SenserStateFun( void )
+{
+	sys_app( type_senser_info );
+}
+/*****************************************************************************
+ * 函数功能:	传感器运行状态上传应用
+ * 形式参数:	无
+ * 返回参数:	无
+ * 修改日期:	2018-08-10					文档移植
+ ****************************************************************************/
+void APP_SenserRecoverFun( void )
+{
+	sys_app( type_senser_recover );
+}
 /*****************************************************************************
  * 函数功能:		网络应用
  * 形式参数:		无
@@ -204,7 +223,6 @@ void APP_OperationFun( void )
 void app_net(void)
 {
 	static uint8_t s_old_time = 0;				//旧时间
-	static uint8_t s_up_flag = 0;
 	
 	if((g_sys_tim_s & 0xFF) != s_old_time){ //定时器应用,1s执行1次
 		APP_FunAdd(APP_SendData);
@@ -228,12 +246,15 @@ void app_net(void)
 		APP_FunAdd(APP_MonitorFun);}
 	if(!g_model_config_flag){								 //模块复位应用,运行一次执行一次
 		APP_FunAdd(Nbiot_reset);}
-	if(g_sys_operation_msg && !s_up_flag){   //上传操作信息应用,运行一次执行一次
+	if(g_sys_operation_msg){                 //上传操作信息应用,运行一次执行一次
 		APP_FunAdd(APP_OperationFun);
-		s_up_flag = 1;
-	}else s_up_flag = 0;
-	
-	if(app_fun[g_app_run_cnt] != NULL){
+	}
+	if(g_senser_flag & 0x3FF){								 //上传传感器运行状态,有一次传一次
+		APP_FunAdd( APP_SenserStateFun );}
+	if(g_senser_flag & 0xFFC00){							 //上传传感器运行状态,有一次传一次
+		APP_FunAdd( APP_SenserRecoverFun );}
+
+	if(app_fun[g_app_run_cnt] != NULL){      //系统应用的运行
 		app_fun[g_app_run_cnt]();//函数运行
 		app_fun[g_app_run_cnt] = NULL;
 		if(++g_app_run_cnt == APP_FUN_CNT)g_app_run_cnt = 0;
@@ -383,11 +404,122 @@ uint16_t data_add_opera( void )
 	uint16_t old_index  = 0;//老的位置
 	uint16_t dat_len    = 0;//数据长度
 	
-	dat_len = 10;	                                                      //一个字节类型+一个字节地址+两个字节状态+六个字节时间
+	dat_len = 10;	                                                      //一个字节类型+一个字节长度+两个字节状态+六个字节时间
 	data_indexcheck( dat_len , &old_index );								//输入数据长度 ,获取起始位置和保存位置
 	up_per_info(g_nb_net_buff);
   data_time_copy();//时间的拷贝
 	return old_index;                                                   //返回起始位置
+}
+
+
+/*****************************************************************************
+ * 函数功能:		传感器运行状态的上传
+ * 形式参数:		无
+ * 返回参数:		数据的起始位置
+ * 更改日期;		2018-08-09				函数编写
+ ****************************************************************************/
+void up_senser_state( uint8_t* up_data)
+{
+	uint8_t i          = 0;										//循环变量
+	uint32_t tmp_state = g_senser_flag;				//中间变量
+	
+	for(i = 0;i < 10;i++)
+	{
+		if(tmp_state & 0x01)break;              //找到这个数后退出
+		tmp_state >>= 1;                        //移位
+	}
+	if(i == 0)									up_data[g_nb_net_buf_end] = part_volt;//类型
+	else if((i > 0) && (i <= 3))up_data[g_nb_net_buf_end] = part_curr;//类型
+	else if((i > 3) && (i <= 6))up_data[g_nb_net_buf_end] = part_temp;//类型
+	else if((i > 6) && (i <= 7))up_data[g_nb_net_buf_end] = part_sycu;//类型
+	else 												up_data[g_nb_net_buf_end] = part_ty;  //类型
+	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
+	
+	if((i == 0) || (i >= 7))    up_data[g_nb_net_buf_end] = 0x01;     //地址
+	else if((i > 0) && (i <= 3))up_data[g_nb_net_buf_end] = i;        //地址
+	else if((i > 3) && (i <= 6))up_data[g_nb_net_buf_end] = i-3;      //地址
+	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
+	
+ 	tmp_state = 0;
+	tmp_state |= (((g_senser_flag>> i) & 0x01) | ((g_senser_flag>> (i + 10)) & 0x01)) << 2;//置位状态位
+	
+	up_data[g_nb_net_buf_end] = (tmp_state >> 0) & 0xFF;              //数据
+	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
+	up_data[g_nb_net_buf_end] = (tmp_state >> 8) & 0xFF;
+	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
+	
+	g_senser_flag &=~ (0x01 << i);
+	g_senser_flag |=  (0x01 << (i+20));											//设置为故障上报
+}
+/*****************************************************************************
+ * 函数功能:		传感器运行状态的上传
+ * 形式参数:		无
+ * 返回参数:		数据的起始位置
+ * 更改日期;		2018-08-09				函数编写
+ ****************************************************************************/
+void up_senser_recover( uint8_t* up_data)
+{
+	uint8_t i          = 0;										//循环变量
+	uint32_t tmp_state = g_senser_flag >> 10;	//中间变量
+	
+	for(i = 0;i < 10;i++)
+	{
+		if(tmp_state & 0x01)break;              //找到这个数后退出
+		tmp_state >>= 1;                        //移位
+	}
+	if(i == 0)									up_data[g_nb_net_buf_end] = part_volt;//类型
+	else if((i > 0) && (i <= 3))up_data[g_nb_net_buf_end] = part_curr;//类型
+	else if((i > 3) && (i <= 6))up_data[g_nb_net_buf_end] = part_temp;//类型
+	else if((i > 6) && (i <= 7))up_data[g_nb_net_buf_end] = part_sycu;//类型
+	else 												up_data[g_nb_net_buf_end] = part_ty;  //类型
+	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
+	
+	if((i == 0) || (i >= 7))    up_data[g_nb_net_buf_end] = 0x01;     //地址
+	else if((i > 0) && (i <= 3))up_data[g_nb_net_buf_end] = i;        //地址
+	else if((i > 3) && (i <= 6))up_data[g_nb_net_buf_end] = i-3;      //地址
+	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
+		
+	up_data[g_nb_net_buf_end] = (0x04 >> 0) & 0xFF;              //数据
+	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
+	up_data[g_nb_net_buf_end] = (0x04 >> 8) & 0xFF;
+	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
+	
+	g_senser_flag &=~ (0x100401 << i);
+}
+/*****************************************************************************
+ * 函数功能:		传感器运行状态的上传
+ * 形式参数:		无
+ * 返回参数:		数据的起始位置
+ * 更改日期;		2018-08-09				函数编写
+ ****************************************************************************/
+uint16_t data_add_state( void )
+{
+	uint16_t old_index  = 0;//老的位置
+	uint16_t dat_len    = 0;//数据长度
+	
+	dat_len = 10;	                                          //一个字节类型+一个字节地址+两个字节状态+六个字节时间
+	data_indexcheck( dat_len , &old_index );								//输入数据长度 ,获取起始位置和保存位置
+	up_senser_state( g_nb_net_buff );
+  data_time_copy();//时间的拷贝
+	return old_index;                                       //返回起始位置
+}
+
+/*****************************************************************************
+ * 函数功能:		传感器运行状态的上传
+ * 形式参数:		无
+ * 返回参数:		数据的起始位置
+ * 更改日期;		2018-08-09				函数编写
+ ****************************************************************************/
+uint16_t data_add_recover( void )
+{
+	uint16_t old_index  = 0;//老的位置
+	uint16_t dat_len    = 0;//数据长度
+	
+	dat_len = 10;	                                          //一个字节类型+一个字节地址+两个字节状态+六个字节时间
+	data_indexcheck( dat_len , &old_index );								//输入数据长度 ,获取起始位置和保存位置
+	up_senser_recover( g_nb_net_buff );
+  data_time_copy();//时间的拷贝
+	return old_index;                                       //返回起始位置
 }
 /*****************************************************************************
  * 函数功能:		队列添加
@@ -429,6 +561,12 @@ void net_app_add( app_type type)
 			break;}
 		case type_oper_info:{     //上传操作信息
 			start_index = data_add_opera();
+			break;}
+		case type_senser_info:{   //上传感器状态信息
+			start_index = data_add_state();
+			break;}
+		case type_senser_recover:{//上传传感器恢复信息
+			start_index = data_add_recover();
 			break;}
 		default:return;
 	}
@@ -776,6 +914,7 @@ void up_startupmessage( uint8_t*  msg_buff)
 							2018-05-30				添加参数 up_data
 							2018-06-05				修复bug;数据在buff里面调头
 							2018-06-07				修复bug;数据填装错误,导致平台显示操作信息有误
+							2018-08-09				修复bug;数据长度错误,之前为01,应该是02
  ****************************************************************************/
 void up_per_info(uint8_t* up_data )
 {	
@@ -784,9 +923,9 @@ void up_per_info(uint8_t* up_data )
 		g_reset_flag &=~ 0x0F;
 		g_reset_flag |=  0xF0;
 	}
-	up_data[g_nb_net_buf_end] = part_ty;
+	up_data[g_nb_net_buf_end] = part_ty;//类型
 	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
-	up_data[g_nb_net_buf_end] = 0x01;
+	up_data[g_nb_net_buf_end] = 0x02;//数据长度
 	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
 	up_data[g_nb_net_buf_end] = g_sys_operation_msg & 0xFF;
 	g_nb_net_buf_end = (g_nb_net_buf_end + 1) & QUEUE_DAT_MAX;
@@ -823,8 +962,8 @@ ErrorStatus sys_app(app_type type)
 		switch(g_app_type)
 		{
 			case type_send_anlog:{			//上传模拟量
-				msg_len = sizeof(data_typedef)/sizeof(uint16_t);
-				cmd			= type_send_dat_cmd;
+				msg_len = sizeof(data_typedef)/sizeof(uint16_t);	//信息体长度
+				cmd			= type_send_dat_cmd;											//命令
 				runstate_to_usart("上传模拟量\r\n");
 				break;}
 			case type_upload_config:{		//上传配置信息
@@ -847,6 +986,16 @@ ErrorStatus sys_app(app_type type)
 				cmd     = type_send_dat_cmd;
 				runstate_to_usart("上传操作信息\r\n");
 				break;}
+			case type_senser_info:{			//上传传感器运行状态信息
+				msg_len = 1;
+				cmd     = type_send_dat_cmd;
+				runstate_to_usart("上传运行状态\r\n");
+				break;}
+			case type_senser_recover:{ //上传传感器状态恢复信息
+				msg_len = 1;
+				cmd     = type_send_dat_cmd;
+				runstate_to_usart("上传恢复信息\r\n");
+				break;}
 			default:{										//其他
 				msg_len = g_queue_idex_s + 1;
 				if(msg_len >= QUEUE_SIZE)msg_len = 0;
@@ -855,7 +1004,7 @@ ErrorStatus sys_app(app_type type)
 		}
 	}
 	if(3){//数据填装
-		Server_SendData(&Serial_Number ,  cmd , g_app_type , msg_len);//将数据写入到数据帧里面
+		Server_SendData( &Serial_Number ,  cmd , g_app_type , msg_len );//将数据写入到数据帧里面
 	}
 	return SUCCESS;
 }

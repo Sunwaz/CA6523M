@@ -54,6 +54,7 @@ net_app_typedef g_net_app_queue[QUEUE_SIZE];							//网络应用APP
  * 更改日期;		2018-05-15				函数编写
 							2018-05-30				函数重新编写
 							2018-06-06				修复bug;数据调头的时候发生错误,导致上传的数据为其他类型数据等(随机的)
+							2018-08-10				修复bug;发送数据的时间数据缺位(主要是操作信息-运行信息)
  ****************************************************************************/ 
 void Server_SendData(uint16_t* num , cmd_type cmd_name ,uint8_t data_type , uint8_t msg_len)
 {
@@ -139,18 +140,18 @@ void Server_SendData(uint16_t* num , cmd_type cmd_name ,uint8_t data_type , uint
 							dat_len = (dat_len+1)&QUEUE_DAT_MAX;
 						}
 					}
-				}else if(g_app_type == type_oper_info)
+				}else if((g_app_type == type_oper_info) || (data_type == type_senser_info) || (data_type == type_senser_recover))
 				{
 					cmd.data[save_index++]		= 0x80;													//系统标志
 					cmd.data[save_index++]		= 0x01;													//系统地址
-					cmd.data[save_index++]		= g_nb_net_buff[read_index];	//部件类型
+					cmd.data[save_index++]		= g_nb_net_buff[read_index];	  //部件类型
 					read_index = (read_index+1)&QUEUE_DAT_MAX;
-					cmd.data[save_index++]		= g_nb_net_buff[read_index];	//部件地址
+					cmd.data[save_index++]		= g_nb_net_buff[read_index];	  //部件地址
 					read_index = (read_index+1)&QUEUE_DAT_MAX;
 					cmd.data[save_index++]		= 0x00;
 					cmd.data[save_index++]		= 0x00;
 					cmd.data[save_index++]		= 0x00;
-					for(j = 0;j < 6;j++)
+					for(j = 0;j < 8;j++)//2字节数据+6字节时间
 					{
 						cmd.data[save_index++] = g_nb_net_buff[read_index];    //cmd.data 不涉及调头,故不做处理
 						read_index = (read_index+1)&QUEUE_DAT_MAX;

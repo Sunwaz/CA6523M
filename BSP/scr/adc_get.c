@@ -710,13 +710,19 @@ uint32_t ADC_CollValueCheck(uint16_t CollValue)
 							2018-06-07				函数重写
 							2018-06-11				修复bug;计数值算错了,导致计算出来的ADC值偏大
               2018-07-13        函数优化;针对干扰进行了处理,模拟量突然产生100以上的偏差时重新采集
+							2018-08-07				修复bug;以前对于获取的标志位是错误的,现在增加了读取错误判断
  ****************************************************************************/
 void ADC_DMAIRQnHandle( void )
 {
 	static uint16_t	sy_curr_cnt	  = 0;//ADC采集次数
 	uint16_t        sy_curr_test  = 0;//剩余电流的测试值
 	
-	if( DMA_GetITStatus( DMA_IT_TC ) != RESET )
+	if( DMA_GetITStatus( DMA1_IT_TE1 ))
+	{
+		DMA_ClearITPendingBit( DMA1_IT_TE1 );
+		return;
+	}
+	if( DMA_GetITStatus( DMA1_IT_TC1 ) != RESET )
 	{
 		if(s_adc_collect_flag)//允许采集
 		{
@@ -736,7 +742,7 @@ void ADC_DMAIRQnHandle( void )
 							g_camp_value       = 0;
 							s_adc_collect_flag = 0;															//采集完成
 						}
-						DMA_ClearITPendingBit( DMA_IT_TC );
+						DMA_ClearITPendingBit( DMA1_IT_TC1 );
 						return;
 					}else
 					{
@@ -769,7 +775,7 @@ void ADC_DMAIRQnHandle( void )
 			if(++s_camp_cnt == ADC_SAMPLING_CNT)
 				s_adc_collect_flag = 0;															//采集完成
 		}
-		DMA_ClearITPendingBit( DMA_IT_TC );
+		DMA_ClearITPendingBit( DMA1_IT_TC1 );
 	}
 }
 
@@ -880,14 +886,14 @@ double ADC_DataSave(uint8_t adc_num , int32_t *camp , double cail , PART type , 
 
 void ADC_SetSta(uint8_t byte , int16_t max , int16_t min , int16_t value)
 {
-	if((value >= max) || (value <= min))
+	if((value >= max) || (value <= min))//产生故障
 	{
-		if(!(g_senser_flag & (0x100401 << byte)))
+		if(!(g_senser_flag & (0x100000 << byte)))
 		{
 			g_senser_flag &=~ (0x100401 << byte);//清除剩余电流传感器故障的相关信息(故障,消除,上报)
 			g_senser_flag |=  (0x000001 << byte);//置位bit7(剩余电流故障)
 		}
-	}else if(g_senser_flag & (0x100401 << byte))
+	}else if(g_senser_flag & (0x100401 << byte))//故障恢复
 	{
 		g_senser_flag &=~ (0x100401 << byte);//清除剩余电流传感器故障的相关信息(故障,消除,上报)
 		g_senser_flag |=  (0x000400 << byte);//置位bit27(剩余电流传感器故障清除)
@@ -897,7 +903,7 @@ void ADC_SetSta(uint8_t byte , int16_t max , int16_t min , int16_t value)
  * 函数功能:		传感器检测
  * 形式参数:		type 高位为类型 低位为通道
  * 返回参数:		无
- * 更改日期;		2018-07-26				函数编写
+ * 更改日期;		2018-08-09				函数编写
  ****************************************************************************/
 void ADC_SenserCheck(uint8_t type)
 {
@@ -906,6 +912,7 @@ void ADC_SenserCheck(uint8_t type)
 	s_camp_cnt				= 0;						    //采样次数清零
 	g_camp_value      = 0;								//采样值清零
 	SENSER_CHECK_OPEN;                    //打开开关
+	delay_ms(10);
 	switch(type)
 	{
 		case 0x00:{//电压传感器,通道1
@@ -913,10 +920,25 @@ void ADC_SenserCheck(uint8_t type)
 			ADC_SetSta( 0 , 5000 , 200 , g_coll_data[VOLAT_DATA_INDEX].data_value );
 			break;}
 		case 0x10:{//电流传感器,通道1
+			if(!(g_sys_param.shield.curr & 0x01))break;//不进行采集和计算
+			s_adc_collect_flag = 1;
+			while(s_adc_collect_flag);
+			g_camp_value >>= ADC_SAMPLING_MOVE;//大于600则为丢失
+			ADC_SetSta( 1 , 0x1A0 ,  0x10, g_camp_value);
 			break;}
 		case 0x11:{//电流传感器,通道2
+			if(!(g_sys_param.shield.curr & 0x02))break;//不进行采集和计算
+			s_adc_collect_flag = 1;
+			while(s_adc_collect_flag);
+			g_camp_value >>= ADC_SAMPLING_MOVE;//大于600则为丢失
+			ADC_SetSta( 2 , 0x1A0 ,  0x10, g_camp_value);
 			break;}
 		case 0x12:{//电流传感器,通道3
+			if(!(g_sys_param.shield.curr & 0x03))break;//不进行采集和计算
+			s_adc_collect_flag = 1;
+			while(s_adc_collect_flag);
+			g_camp_value >>= ADC_SAMPLING_MOVE;//大于600则为丢失
+			ADC_SetSta( 3 , 0x1A0 ,  0x10, g_camp_value);
 			break;}
 		case 0x20:{//温度传感器,通道1
 			if(!(g_sys_param.shield.temp & 0x01))break;//不进行采集和计算
@@ -931,7 +953,7 @@ void ADC_SenserCheck(uint8_t type)
 			s_adc_collect_flag = 1;
 			while(s_adc_collect_flag);
 			g_camp_value >>= ADC_SAMPLING_MOVE;//大于600则为丢失
-			ADC_SetSta( 7 , 0x600 , 0x100 , g_camp_value);
+			ADC_SetSta( 7 , 0x76C , 0x10 , g_camp_value);
 			break;}
 		default:{//其他
 			SENSER_CHECK_CLOS;									//关闭开关
@@ -941,7 +963,7 @@ void ADC_SenserCheck(uint8_t type)
 		if(((old_sta & 0x3FF) != (g_senser_flag & 0x3FF)) && ((g_senser_flag & 0x3FF) != 0))
 		{
 			LED_Control( L_ERROR , OPEN);
-		}else if(((old_sta & 0xFFC00) != (g_senser_flag & 0xFFC00)) && (!g_nb_error_flag))
+		}else if(!(g_senser_flag & 0x3FF003FF) && (!g_nb_error_flag))
 		{
 			LED_Control( L_ERROR , CLOS);
 		}
@@ -960,7 +982,7 @@ void ADC_SenserCheck(uint8_t type)
 							2018-07-17				修复bug;针对电流的adc采样进行分段调整,输入矫正值由0.30141更改为0.2261
 							2018-07-19				函数优化;针对校准程序的使用,本函数添加返回值,反回原始采样值
 							2018-07-23				函数优化;在结束位置清零采样标记,并复位定时器
-							2018-07-26				功能添加;在采样前判断传感器状态(是否丢失,是否被屏蔽)
+							2018-08-09				功能添加;在采样前判断传感器状态(是否丢失,是否被屏蔽)
  ****************************************************************************/
 double ADC_Collection( uint8_t cmd )
 {
@@ -980,7 +1002,8 @@ double ADC_Collection( uint8_t cmd )
 			break;}
 		case 1:{//电流数据读取和计算
 			re_value = ADC_DataSave( 1 , &g_camp_value , 0.2261 , part_curr , &cnt);
-			if(re_value <= 5){}//开始判断传感器是否丢失
+			if(re_value <= 30){ADC_SenserCheck(0x10);}//开始判断传感器是否丢失
+			else if(g_senser_flag & (0x100001 << 1)){g_senser_flag &=~ (0x100401 << 1);g_senser_flag |= (0x400 << 1);}//恢复
 			break;}
 		case 2:{//电流2数据采集(采集1024次)
 			if((!(g_sys_param.shield.curr & 0x02)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
@@ -988,7 +1011,8 @@ double ADC_Collection( uint8_t cmd )
 			break;}
 		case 3:{//电流2数据读取
 			re_value = ADC_DataSave( 6 , &g_camp_value , 0.2261 , part_curr , &cnt);
-			if(re_value <= 5){}//开始判断传感器是否丢失
+			if(re_value <= 30){ADC_SenserCheck(0x11);}//开始判断传感器是否丢失
+			else if(g_senser_flag & (0x100001 << 2)){g_senser_flag &=~ (0x100401 << 2);g_senser_flag |= (0x400 << 2);}//恢复
 			break;}
 		case 4:{//电流3数据采集(采集1024次)
 			if((!(g_sys_param.shield.curr & 0x04)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
@@ -996,7 +1020,8 @@ double ADC_Collection( uint8_t cmd )
 			break;}
 		case 5:{//电流3数据读取
 			re_value = ADC_DataSave( 7 , &g_camp_value , 0.2261 , part_curr , &cnt);//2261
-			if(re_value <= 5){}//开始判断传感器是否丢失
+			if(re_value <= 30){ADC_SenserCheck(0x12);}//开始判断传感器是否丢失
+			else if(g_senser_flag & (0x100001 << 3)){g_senser_flag &=~ (0x100401 << 3);g_senser_flag |= (0x400 << 3);}//恢复
 			break;}
 		case 6:{//剩余电流数据采集(采集1024次)
 			if((!(g_sys_param.shield.sy_curr & 0x01)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
@@ -1005,7 +1030,7 @@ double ADC_Collection( uint8_t cmd )
 		case 7:{//剩余电流数据读取
 			re_value = ADC_DataSave( 2 , &g_camp_value , 5.1859 , part_sycu , &cnt);//5.1859    6.7967
 			if(re_value <= 5){ADC_SenserCheck(0x30);}//开始判断传感器是否丢失
-			else g_senser_flag &=~ 0x1000;//传感器正常
+			else if(g_senser_flag & (0x100001 << 7)){g_senser_flag &=~ (0x100401 << 7);g_senser_flag |= (0x400 << 7);}//恢复
 			break;}
 		case 8:{//电压数据采集(采集1024次)
 			if((!(g_sys_param.shield.volat & 0x01)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算
@@ -1013,6 +1038,8 @@ double ADC_Collection( uint8_t cmd )
 			break;}
 		case 9:{//电压数据读取
 			re_value = ADC_DataSave( 3 , &g_camp_value , 2.26056 , part_volt , &cnt);
+			if(re_value <= 30){ADC_SenserCheck(0x00);}//开始判断传感器是否丢失
+			else if(g_senser_flag & (0x100001 << 0)){g_senser_flag &=~ (0x100401 << 0);g_senser_flag |= (0x400 << 0);}//恢复
 			break;}
 		case 10:{//温度1数据采集(采集1024次)
 			if((!(g_sys_param.shield.temp & 0x01)) && (cmd == 0xFF)){cnt++;break;}//不进行采集和计算

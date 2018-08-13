@@ -70,12 +70,14 @@
 
 //数据类型标志
 #define NET_NULL_DATA									0x00				//空数据
+#define NET_UPLOAD_STATE              0x02				//上传建筑消防设施部件运行状态
 #define NET_UPLOAD_ANLOG							0x03				//上传建筑消防设施部件模拟量值
 #define NET_OPERA_INFOR               0x04        //上传建筑消防设施操作信息
 #define NET_UPLOAD_CFG								0x1A				//上传用户信息传输装置配置情况
 #define NET_DOWNLOAD_CFG							0x80				//下传装置配置
 #define NET_UPLOAD_RUNING             0x84        //上传运行信息
 #define NET_UPLOAD_STARTUP            0x85        //上传启动信息
+#define NET_UPLOAD_RECOVER						0xA2				//上传恢复状态
 
 //配置参数类型
 #define IP_ADDR                       0x01        //配置类型 IP地址
@@ -104,7 +106,17 @@
 
 #define SYS_VERSION                   0xA0        //系统版本         //例如 CA6523M-V101-20180510
 #define MODULAR_VERSION               0xA1        //模块固件版本     //例如 BC95B5HBR01A02W16
-
+//消防状态
+#define CURR_1_STATE									0x80				//探测器1					//电流探测器1
+#define CURR_2_STATE                  0x81				//探测器2					//电流探测器2
+#define CURR_3_STATE									0x82				//探测器3					//电流探测器3
+#define VOLAT_1_STATE									0x83				//探测器4					//电压探测器1
+#define VOLAT_2_STATE									0x84				//探测器5					//电压探测器2
+#define VOLAT_3_STATE									0x85				//探测器6					//电压探测器3
+#define TEMP_1_STATE									0x86				//探测器7					//温度探测器1
+#define TEMP_2_STATE									0x87				//探测器8					//温度探测器2
+#define TEMP_3_STATE									0x88				//探测器9					//温度探测器3
+#define SY_CURR_1_STATE								0x89				//探测器10					//剩余电流探测器1
 
 
 #pragma pack(1)
@@ -131,6 +143,8 @@ typedef enum{																		 //应用数据类型
 	type_upload_startup   = NET_UPLOAD_STARTUP,    //上传启动数据
 	type_runing           = NET_UPLOAD_RUNING,     //上传运行数据
 	type_oper_info        = NET_OPERA_INFOR,			 //上传操作信息
+	type_senser_info      = NET_UPLOAD_STATE,			 //上传设备运行状态
+	type_senser_recover   = NET_UPLOAD_RECOVER,		 //上传设备恢复状态
 }app_type;
 
 typedef enum{																			//配置参数类型
